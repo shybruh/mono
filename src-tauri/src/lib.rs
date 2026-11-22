@@ -152,13 +152,17 @@ fn store_lyrics(state: State<AppState>, path: String, raw: Option<String>, pinne
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct AppInfo {
-    version: &'static str,
+    version: String,
     discord_builtin: bool,
 }
 
 #[tauri::command]
-fn app_info() -> AppInfo {
-    AppInfo { version: env!("CARGO_PKG_VERSION"), discord_builtin: !integrations::BUILTIN_DISCORD_APP_ID.is_empty() }
+fn app_info(app: AppHandle) -> AppInfo {
+    AppInfo {
+        // tauri.conf.json version, which the release workflow sets from the tag.
+        version: app.package_info().version.to_string(),
+        discord_builtin: !integrations::BUILTIN_DISCORD_APP_ID.is_empty(),
+    }
 }
 
 #[tauri::command]
