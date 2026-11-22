@@ -43,7 +43,56 @@
       "nsis": {
         "installMode": "currentUser"
       }
-    }
+    },
+    "fileAssociations": [
+      {
+        "ext": [
+          "mp3"
+        ],
+        "name": "MP3 audio",
+        "description": "MP3 audio",
+        "role": "Viewer",
+        "mimeType": "audio/mpeg"
+      },
+      {
+        "ext": [
+          "flac"
+        ],
+        "name": "FLAC audio",
+        "description": "FLAC audio",
+        "role": "Viewer",
+        "mimeType": "audio/flac"
+      },
+      {
+        "ext": [
+          "wav"
+        ],
+        "name": "WAV audio",
+        "description": "WAV audio",
+        "role": "Viewer",
+        "mimeType": "audio/wav"
+      },
+      {
+        "ext": [
+          "ogg",
+          "oga"
+        ],
+        "name": "Ogg audio",
+        "description": "Ogg Vorbis audio",
+        "role": "Viewer",
+        "mimeType": "audio/ogg"
+      },
+      {
+        "ext": [
+          "m4a",
+          "aac"
+        ],
+        "name": "AAC audio",
+        "description": "AAC / M4A audio",
+        "role": "Viewer",
+        "mimeType": "audio/mp4"
+      }
+    ]
   },
   "plugins": {
     "updater": {

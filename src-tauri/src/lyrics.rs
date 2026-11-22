@@ -174,6 +174,16 @@ pub fn find(meta: &TrackMeta, data_dir: &Path, online: bool) -> Found {
     }
 }
 
+/// Saves user-synced lyrics as a sidecar .lrc next to the audio file and
+/// drops any pinned / cached online version so the new file wins.
+pub fn save_sidecar(meta: &TrackMeta, data_dir: &Path, lrc: &str) -> anyhow::Result<Option<Lyrics>> {
+    let path = Path::new(&meta.path).with_extension("lrc");
+    std::fs::write(&path, lrc)?;
+    let _ = std::fs::remove_file(pinned_file(data_dir, meta));
+    let _ = std::fs::remove_file(cache_file(data_dir, meta));
+    Ok(parse(lrc, "file"))
+}
+
 /// Stores an online result (raw LRC or plain text, or a miss). `pinned`
 /// records an explicit user choice that overrides local and cached lyrics.
 pub fn store(meta: &TrackMeta, data_dir: &Path, raw: Option<&str>, pinned: bool) -> Option<Lyrics> {

@@ -34,6 +34,7 @@ notify-debouncer-mini = "0.7.0"
 discord-rich-presence = "1.1.0"
 tauri-plugin-process = "2"
 tauri-plugin-updater = { version = "2", default-features = false, features = ["native-tls", "zip"] }
+tauri-plugin-single-instance = "2"
 
 [profile.dev.package."*"]
 opt-level = 3

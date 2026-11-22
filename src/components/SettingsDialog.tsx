@@ -132,6 +132,14 @@ export function SettingsDialog() {
 
           <Separator />
 
+          <Section title="Resume">
+            <Row label="Resume where you left off">
+              <Switch checked={config.resume} onCheckedChange={(v) => setConfig({ resume: v })} />
+            </Row>
+          </Section>
+
+          <Separator />
+
           <Section title="Seek">
             <Row label="Seek control">
               <Select value={config.seekStyle} onValueChange={(v) => setConfig({ seekStyle: v as typeof config.seekStyle })}>

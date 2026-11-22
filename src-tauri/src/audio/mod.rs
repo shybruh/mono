@@ -1,7 +1,9 @@
+pub mod dsp;
 pub mod meters;
 pub mod output;
 pub mod player;
 pub mod resample;
+pub mod resume;
 pub mod source;
 pub mod stretch;
 pub mod waveform;
@@ -41,7 +43,11 @@ pub enum Cmd {
     SetRepeat(Repeat),
     RefreshMeta(String),
     EmitState,
-    #[allow(dead_code)]
+    /// Restore the last session paused at `pos`.
+    Restore { paths: Vec<String>, index: usize, pos: f64 },
+    SetResume(bool),
+    /// Equaliser, crossfeed level (0 = off) and crossfade seconds (0 = gapless).
+    SetDsp { eq: dsp::EqSettings, crossfeed: f32, crossfade: f64 },
     Shutdown,
 }
 

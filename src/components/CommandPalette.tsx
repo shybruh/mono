@@ -6,6 +6,8 @@ import { useStore } from "@/lib/store";
 import { multiScore } from "@/lib/fuzzy";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { addFolder } from "./Sidebar";
+import { newSmartCrate } from "./SmartCrateDialog";
+import { analyse } from "@/lib/analysis";
 import { basename } from "@/lib/utils";
 
 interface Action {
@@ -30,6 +32,16 @@ function actions(): Action[] {
     { id: "viz", label: "Toggle visualiser", keys: "V", run: s.toggleViz },
     { id: "theater", label: "Theater and lyrics", keys: "F", run: () => s.toggleTheater() },
     { id: "fullscreen", label: "Fullscreen", keys: "F11", run: () => s.toggleFullscreen() },
+    { id: "queue", label: "Up next", keys: "Q", run: () => s.setQueueOpen(true) },
+    { id: "shuffle", label: s.shuffle ? "Shuffle off" : "Shuffle on", keys: "S", run: () => s.toggleShuffle() },
+    {
+      id: "layout",
+      label: s.layout === "albums" ? "Show track list" : "Show album grid",
+      run: () => s.setLayout(s.layout === "albums" ? "list" : "albums"),
+    },
+    { id: "smart", label: "New smart crate", run: () => s.setSmartEdit(newSmartCrate()) },
+    { id: "analyse", label: "Analyse BPM and key for this crate", run: () => analyse(s.list.filter((m) => !m.bpm || !m.key)) },
+    { id: "selectall", label: "Select all tracks", keys: "Ctrl A", run: () => s.selectAll() },
     { id: "deck", label: "Micro-deck", keys: "M", run: () => api.openDeck() },
     { id: "tags", label: "Edit tags", keys: "T", run: () => tagPath && s.openTags(tagPath) },
     { id: "folder", label: "Add folder", run: addFolder },

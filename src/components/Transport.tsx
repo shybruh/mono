@@ -1,11 +1,13 @@
 import { useRef, useState } from "react";
-import { MicVocal, Pause, Play, Repeat, Repeat1, SkipBack, SkipForward, Volume1, Volume2, VolumeX } from "lucide-react";
+import { useSleep, startSleep, cancelSleep, fmtRemaining } from "@/lib/sleep";
+import { ListOrdered, Moon, MicVocal, Pause, Play, Repeat, Repeat1, Shuffle, SkipBack, SkipForward, Volume1, Volume2, VolumeX } from "lucide-react";
 import { api } from "@/lib/api";
 import { useStore } from "@/lib/store";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Slider } from "@/components/ui/slider";
 import { cn, fmtTime } from "@/lib/utils";
 import { SeekBar } from "./SeekBar";
+import { SoundPanel } from "./SoundPanel";
 
 const btn =
   "flex h-[34px] min-w-[34px] items-center justify-center rounded-lg border border-input/80 text-foreground/85 transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-[17px]";
@@ -158,9 +160,64 @@ function Volume() {
   );
 }
 
+const SLEEP_CHOICES = [15, 30, 45, 60, 90];
+
+function SleepTimer() {
+  const { mode, remaining } = useSleep();
+  const [open, setOpen] = useState(false);
+  const pick = (c: number | "track") => {
+    startSleep(c);
+    setOpen(false);
+  };
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          aria-label="Sleep timer"
+          title="Sleep timer"
+          className={cn(
+            "flex items-center gap-1 rounded p-1 font-mono text-[11px] text-muted-foreground hover:text-foreground [&_svg]:size-4",
+            mode && "text-brand hover:text-brand",
+          )}
+        >
+          <Moon />
+          {mode && <span className="tabular-nums">{fmtRemaining(remaining)}</span>}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent side="top" align="end" className="w-48 p-1">
+        <div className="px-2 py-1.5 text-[11px] text-muted-foreground">Pause after</div>
+        {SLEEP_CHOICES.map((m) => (
+          <button
+            key={m}
+            onClick={() => pick(m)}
+            className="flex w-full rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-accent"
+          >
+            {m} minutes
+          </button>
+        ))}
+        <button onClick={() => pick("track")} className="flex w-full rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-accent">
+          End of this track
+        </button>
+        {mode && (
+          <button
+            onClick={() => {
+              cancelSleep();
+              setOpen(false);
+            }}
+            className="mt-1 flex w-full rounded-md border-t px-2 py-1.5 text-left text-[13px] text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            Turn off
+          </button>
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function Transport() {
   const repeat = useStore((s) => s.player.repeat);
   const theater = useStore((s) => s.theater);
+  const shuffle = useStore((s) => s.shuffle);
   return (
     <div className="relative z-10 shrink-0 border-t bg-background px-4 pb-3.5 pt-5">
       <SeekBar />
@@ -168,6 +225,14 @@ export function Transport() {
       <div className="mt-3.5 grid grid-cols-[1fr_auto_1fr] items-center">
         <div />
         <div className="flex items-center gap-2.5">
+          <button
+            aria-label="Shuffle"
+            title="Shuffle (S)"
+            onClick={() => useStore.getState().toggleShuffle()}
+            className={cn(btn, "text-muted-foreground", shuffle && "border-brand text-brand")}
+          >
+            <Shuffle />
+          </button>
           <LoopButtons />
           <span className="mx-1 h-6 w-px bg-border" />
           <TransportButtons />
@@ -183,6 +248,16 @@ export function Transport() {
           </button>
         </div>
         <div className="flex items-center justify-end gap-3">
+          <SoundPanel />
+          <SleepTimer />
+          <button
+            aria-label="Queue"
+            title="Up next (Q)"
+            onClick={() => useStore.getState().setQueueOpen(true)}
+            className="rounded p-1 text-muted-foreground hover:text-foreground [&_svg]:size-4"
+          >
+            <ListOrdered />
+          </button>
           <button
             aria-label="Theater"
             title="Theater (F)"

@@ -25,6 +25,10 @@ export interface TrackMeta {
   rgAlbumGain?: number | null;
   rgAlbumPeak?: number | null;
   hasCover: boolean;
+  bpm?: number | null;
+  key?: string | null;
+  /** File modification time, Unix seconds. */
+  mtime: number;
   inferred: boolean;
 }
 
@@ -41,6 +45,21 @@ export interface IndexEntry {
   artist?: string | null;
   album?: string | null;
   dir: string;
+}
+
+export interface SmartRule {
+  field: string;
+  op: string;
+  value: string;
+  value2?: string | null;
+}
+
+export interface SmartCrate {
+  id: string;
+  name: string;
+  matchAll: boolean;
+  limit?: number | null;
+  rules: SmartRule[];
 }
 
 export interface Config {
@@ -62,6 +81,11 @@ export interface Config {
   lyricsOnline: boolean;
   metaOnline: boolean;
   autoUpdate: boolean;
+  resume: boolean;
+  smartCrates: SmartCrate[];
+  eq: { enabled: boolean; preamp: number; gains: [number, number, number, number, number, number, number, number, number, number] };
+  crossfeed: number;
+  crossfade: number;
   seekStyle: "waveform" | "bar";
 }
 
@@ -114,6 +138,8 @@ export interface PositionEvent {
 export interface Meters {
   spectrum: number[];
   scope: number[];
+  /** Interleaved L, R samples for the vectorscope. */
+  stereo: number[];
   peakL: number;
   peakR: number;
   lufsM: number;
@@ -130,6 +156,8 @@ export interface TagEdit {
   track?: number | null;
   trackTotal?: number | null;
   disc?: number | null;
+  bpm?: number | null;
+  key?: string | null;
 }
 
 export const api = {
@@ -140,10 +168,12 @@ export const api = {
   tracks: (path: string) => invoke<TrackMeta[]>("tracks", { path }),
   historyTracks: (days: number) => invoke<TrackMeta[]>("history_tracks", { days }),
   libraryIndex: () => invoke<IndexEntry[]>("library_index"),
+  smartTracks: (def: SmartCrate) => invoke<TrackMeta[]>("smart_tracks", { def }),
   trackMeta: (path: string) => invoke<TrackMeta>("track_meta", { path }),
   waveform: (path: string, buckets: number) => invoke<number[]>("waveform", { path, buckets }),
   cover: (path: string) => invoke<string | null>("cover", { path }),
   lyrics: (path: string) => invoke<LyricsFound>("lyrics", { path }),
+  saveLrc: (path: string, lrc: string) => invoke<Lyrics | null>("save_lrc", { path, lrc }),
   storeLyrics: (path: string, raw: string | null, pinned: boolean) =>
     invoke<Lyrics | null>("store_lyrics", { path, raw, pinned }),
   appInfo: () => invoke<AppInfo>("app_info"),
@@ -154,6 +184,7 @@ export const api = {
   setCoverData: (path: string, data: string, mime: string) =>
     invoke<void>("set_cover_data", { path, data, mime }),
   removeCover: (path: string) => invoke<void>("remove_cover", { path }),
+  analyseTrack: (path: string) => invoke<TrackMeta>("analyse_track", { path }),
   renumber: (paths: string[]) => invoke<void>("renumber", { paths }),
 
   playQueue: (paths: string[], index: number) => invoke<void>("play_queue", { paths, index }),
@@ -190,4 +221,5 @@ export const on = {
   libraryChanged: (cb: (dirs: string[]) => void) =>
     listen<string[]>("library-changed", (e) => cb(e.payload)),
   libraryIndexed: (cb: () => void) => listen("library-indexed", () => cb()),
+  openFiles: (cb: (paths: string[]) => void) => listen<string[]>("open-files", (e) => cb(e.payload)),
 };

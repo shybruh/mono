@@ -1,28 +1,35 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { ImageUp, Loader2, Search, Trash2 } from "lucide-react";
 import { fetchArtwork, search, type Match } from "@/lib/itunes";
 import { basename, cn, fmtTime } from "@/lib/utils";
 import { api, type TagEdit, type TrackMeta } from "@/lib/api";
 import { useStore } from "@/lib/store";
+import { keyToTag, parseKey } from "@/lib/keys";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
-type Form = Record<keyof TagEdit, string>;
+type FieldId = keyof TagEdit;
+type Form = Record<FieldId, string>;
 
-const empty: Form = {
-  title: "",
-  artist: "",
-  album: "",
-  albumArtist: "",
-  genre: "",
-  year: "",
-  track: "",
-  trackTotal: "",
-  disc: "",
-};
+const FIELDS: FieldId[] = [
+  "title",
+  "artist",
+  "album",
+  "albumArtist",
+  "genre",
+  "year",
+  "track",
+  "trackTotal",
+  "disc",
+  "bpm",
+  "key",
+];
+const NUMERIC: FieldId[] = ["year", "track", "trackTotal", "disc", "bpm"];
+
+const blank = () => Object.fromEntries(FIELDS.map((f) => [f, ""])) as Form;
 
 function fromMeta(m: TrackMeta): Form {
   const s = (v: unknown) => (v == null ? "" : String(v));
@@ -36,21 +43,27 @@ function fromMeta(m: TrackMeta): Form {
     track: s(m.track),
     trackTotal: s(m.trackTotal),
     disc: s(m.disc),
+    bpm: m.bpm ? String(Math.round(m.bpm * 10) / 10) : "",
+    key: m.key ?? "",
   };
 }
 
 function toEdit(f: Form): TagEdit {
-  const n = (v: string) => (v.trim() && Number.isFinite(+v) ? Math.trunc(+v) : null);
+  const int = (v: string) => (v.trim() && Number.isFinite(+v) ? Math.trunc(+v) : null);
+  const bpm = parseFloat(f.bpm);
+  const key = parseKey(f.key);
   return {
     title: f.title,
     artist: f.artist,
     album: f.album,
     albumArtist: f.albumArtist,
     genre: f.genre,
-    year: n(f.year),
-    track: n(f.track),
-    trackTotal: n(f.trackTotal),
-    disc: n(f.disc),
+    year: int(f.year),
+    track: int(f.track),
+    trackTotal: int(f.trackTotal),
+    disc: int(f.disc),
+    bpm: Number.isFinite(bpm) && bpm > 0 ? bpm : null,
+    key: key ? keyToTag(key) : f.key.trim() || null,
   };
 }
 
@@ -58,13 +71,15 @@ function Field({
   id,
   label,
   form,
-  set,
+  mixed,
+  onChange,
   className,
 }: {
-  id: keyof Form;
+  id: FieldId;
   label: string;
   form: Form;
-  set: (f: Form) => void;
+  mixed: boolean;
+  onChange: (id: FieldId, v: string) => void;
   className?: string;
 }) {
   return (
@@ -75,18 +90,20 @@ function Field({
       <Input
         id={id}
         value={form[id]}
-        onChange={(e) => set({ ...form, [id]: e.target.value })}
-        className="h-8 font-mono text-[12px]"
-        inputMode={["year", "track", "trackTotal", "disc"].includes(id) ? "numeric" : undefined}
+        placeholder={mixed ? "Mixed" : undefined}
+        onChange={(e) => onChange(id, e.target.value)}
+        className="h-8 font-mono text-[12px] placeholder:italic"
+        inputMode={NUMERIC.includes(id) ? "decimal" : undefined}
       />
     </div>
   );
 }
 
 export function TagDrawer() {
-  const path = useStore((s) => s.tagTarget);
-  const [meta, setMeta] = useState<TrackMeta | null>(null);
-  const [form, setForm] = useState<Form>(empty);
+  const paths = useStore((s) => s.tagTarget);
+  const [metas, setMetas] = useState<TrackMeta[]>([]);
+  const [form, setForm] = useState<Form>(blank);
+  const [touched, setTouched] = useState<Set<FieldId>>(new Set());
   const [cover, setCover] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -94,25 +111,51 @@ export function TagDrawer() {
   const [looking, setLooking] = useState(false);
   const [stagedArt, setStagedArt] = useState<string | null>(null);
 
-  const load = async (p: string) => {
-    const m = await api.trackMeta(p);
-    setMeta(m);
-    setForm(fromMeta(m));
-    setCover(await api.cover(p));
+  const single = paths?.length === 1;
+  const key = paths?.join("\n") ?? "";
+
+  /** Common value per field, "" where the tracks differ. */
+  const base = useMemo(() => {
+    const out = blank();
+    const mixed = new Set<FieldId>();
+    if (!metas.length) return { form: out, mixed };
+    const forms = metas.map(fromMeta);
+    for (const f of FIELDS) {
+      const v = forms[0][f];
+      if (forms.every((x) => x[f] === v)) out[f] = v;
+      else mixed.add(f);
+    }
+    return { form: out, mixed };
+  }, [metas]);
+
+  const load = async (ps: string[]) => {
+    const ms = await Promise.all(ps.map((p) => api.trackMeta(p)));
+    setMetas(ms);
+    setTouched(new Set());
+    setCover(ps.length === 1 ? await api.cover(ps[0]) : null);
     setError(null);
   };
 
   useEffect(() => {
     setMatches(null);
     setStagedArt(null);
-    if (path) load(path);
-  }, [path]);
+    setMetas([]);
+    if (paths) load(paths);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+
+  useEffect(() => setForm(base.form), [base]);
+
+  const change = (id: FieldId, v: string) => {
+    setForm((f) => ({ ...f, [id]: v }));
+    setTouched((t) => new Set(t).add(id));
+  };
 
   const lookUp = async () => {
     setLooking(true);
     setError(null);
     try {
-      const list = await search(form.artist, form.title, meta?.duration ?? 0);
+      const list = await search(form.artist, form.title, metas[0]?.duration ?? 0);
       setMatches(list.slice(0, 8));
     } catch {
       setError("iTunes lookup failed");
@@ -123,25 +166,29 @@ export function TagDrawer() {
 
   const apply = (m: Match) => {
     const s = (v: unknown) => (v == null ? "" : String(v));
-    setForm({
-      title: m.title || form.title,
-      artist: m.artist || form.artist,
-      album: m.album || form.album,
-      albumArtist: m.albumArtist || form.albumArtist,
-      genre: m.genre || form.genre,
-      year: s(m.year) || form.year,
-      track: s(m.track) || form.track,
-      trackTotal: s(m.trackTotal) || form.trackTotal,
-      disc: s(m.disc) || form.disc,
-    });
+    const patch: Partial<Form> = {
+      title: m.title,
+      artist: m.artist,
+      album: m.album,
+      albumArtist: m.albumArtist ?? "",
+      genre: m.genre ?? "",
+      year: s(m.year),
+      track: s(m.track),
+      trackTotal: s(m.trackTotal),
+      disc: s(m.disc),
+    };
+    const next = { ...form };
+    const t = new Set(touched);
+    for (const [k, v] of Object.entries(patch) as [FieldId, string][]) {
+      if (v) {
+        next[k] = v;
+        t.add(k);
+      }
+    }
+    setForm(next);
+    setTouched(t);
     if (m.artwork) setStagedArt(m.artwork);
     setMatches(null);
-  };
-
-  const after = async () => {
-    if (!path) return;
-    await load(path);
-    useStore.getState().reloadList();
   };
 
   const run = async (fn: () => Promise<unknown>) => {
@@ -149,7 +196,8 @@ export function TagDrawer() {
     setError(null);
     try {
       await fn();
-      await after();
+      if (paths) await load(paths);
+      useStore.getState().reloadList();
     } catch (e) {
       setError(String(e));
     } finally {
@@ -157,29 +205,41 @@ export function TagDrawer() {
     }
   };
 
-  const dirty =
-    meta != null && (JSON.stringify(fromMeta(meta)) !== JSON.stringify(form) || meta.inferred || stagedArt != null);
+  const save = () =>
+    run(async () => {
+      // Each file keeps its own values for fields that weren't edited.
+      for (const m of metas) {
+        const merged = fromMeta(m);
+        for (const f of touched) merged[f] = form[f];
+        await api.writeTags(m.path, toEdit(merged));
+      }
+      if (stagedArt && paths) {
+        const art = await fetchArtwork(stagedArt);
+        for (const p of paths) await api.setCoverData(p, art.data, art.mime);
+        setStagedArt(null);
+      }
+    });
+
+  const inferred = single && metas[0]?.inferred;
+  const dirty = touched.size > 0 || stagedArt != null || !!inferred;
+  const anyCover = metas.some((m) => m.hasCover);
+  const mixed = (f: FieldId) => base.mixed.has(f) && !touched.has(f);
+  const fieldProps = { form, onChange: change };
 
   return (
-    <Sheet open={path != null} onOpenChange={(v) => !v && useStore.getState().openTags(null)}>
+    <Sheet open={paths != null} onOpenChange={(v) => !v && useStore.getState().openTags(null)}>
       <SheetContent className="w-[380px] gap-0 sm:max-w-[380px]">
         <SheetHeader className="border-b">
-          <SheetTitle className="text-sm font-medium">Tags</SheetTitle>
-          <SheetDescription className="truncate font-mono text-[11px]">{path ? basename(path) : ""}</SheetDescription>
+          <SheetTitle className="text-sm font-medium">{single ? "Tags" : `Tags · ${paths?.length ?? 0} tracks`}</SheetTitle>
+          <SheetDescription className="truncate font-mono text-[11px]">
+            {single && paths ? basename(paths[0]) : "Edited fields apply to every selected track"}
+          </SheetDescription>
         </SheetHeader>
         <form
           className="flex min-h-0 flex-1 flex-col"
           onSubmit={(e) => {
             e.preventDefault();
-            if (!path) return;
-            run(async () => {
-              await api.writeTags(path, toEdit(form));
-              if (stagedArt) {
-                const art = await fetchArtwork(stagedArt);
-                await api.setCoverData(path, art.data, art.mime);
-                setStagedArt(null);
-              }
-            });
+            save();
           }}
         >
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
@@ -190,9 +250,11 @@ export function TagDrawer() {
                 )}
               </div>
               <div className="flex flex-col gap-2">
-                <Button type="button" variant="outline" size="sm" disabled={busy || looking} onClick={lookUp}>
-                  {looking ? <Loader2 className="animate-spin" /> : <Search />} Look up
-                </Button>
+                {single && (
+                  <Button type="button" variant="outline" size="sm" disabled={busy || looking} onClick={lookUp}>
+                    {looking ? <Loader2 className="animate-spin" /> : <Search />} Look up
+                  </Button>
+                )}
                 <Button
                   type="button"
                   variant="outline"
@@ -203,7 +265,9 @@ export function TagDrawer() {
                       multiple: false,
                       filters: [{ name: "Image", extensions: ["jpg", "jpeg", "png", "gif", "bmp"] }],
                     });
-                    if (typeof img === "string" && path) run(() => api.setCover(path, img));
+                    if (typeof img === "string" && paths) run(async () => {
+                      for (const p of paths) await api.setCover(p, img);
+                    });
                   }}
                 >
                   <ImageUp /> Replace
@@ -212,8 +276,13 @@ export function TagDrawer() {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  disabled={busy || !meta?.hasCover}
-                  onClick={() => path && run(() => api.removeCover(path))}
+                  disabled={busy || !anyCover}
+                  onClick={() =>
+                    paths &&
+                    run(async () => {
+                      for (const p of paths) await api.removeCover(p);
+                    })
+                  }
                 >
                   <Trash2 /> Remove
                 </Button>
@@ -254,26 +323,41 @@ export function TagDrawer() {
                 ))}
               </div>
             )}
-            <Field id="title" label="Title" form={form} set={setForm} />
-            <Field id="artist" label="Artist" form={form} set={setForm} />
-            <Field id="album" label="Album" form={form} set={setForm} />
-            <Field id="albumArtist" label="Album artist" form={form} set={setForm} />
+            <Field id="title" label="Title" mixed={mixed("title")} {...fieldProps} />
+            <Field id="artist" label="Artist" mixed={mixed("artist")} {...fieldProps} />
+            <Field id="album" label="Album" mixed={mixed("album")} {...fieldProps} />
+            <Field id="albumArtist" label="Album artist" mixed={mixed("albumArtist")} {...fieldProps} />
             <div className="grid grid-cols-2 gap-3">
-              <Field id="genre" label="Genre" form={form} set={setForm} />
-              <Field id="year" label="Year" form={form} set={setForm} />
+              <Field id="genre" label="Genre" mixed={mixed("genre")} {...fieldProps} />
+              <Field id="year" label="Year" mixed={mixed("year")} {...fieldProps} />
             </div>
             <div className="grid grid-cols-3 gap-3">
-              <Field id="track" label="Track" form={form} set={setForm} />
-              <Field id="trackTotal" label="Of" form={form} set={setForm} />
-              <Field id="disc" label="Disc" form={form} set={setForm} />
+              <Field id="track" label="Track" mixed={mixed("track")} {...fieldProps} />
+              <Field id="trackTotal" label="Of" mixed={mixed("trackTotal")} {...fieldProps} />
+              <Field id="disc" label="Disc" mixed={mixed("disc")} {...fieldProps} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field id="bpm" label="BPM" mixed={mixed("bpm")} {...fieldProps} />
+              <Field id="key" label="Key" mixed={mixed("key")} {...fieldProps} />
             </div>
             {error && <p className="font-mono text-[11px] text-destructive">{error}</p>}
           </div>
           <div className="flex justify-end gap-2 border-t p-4">
-            <Button type="button" variant="ghost" size="sm" disabled={!dirty || busy} onClick={() => meta && setForm(fromMeta(meta))}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={!dirty || busy}
+              onClick={() => {
+                setForm(base.form);
+                setTouched(new Set());
+                setStagedArt(null);
+              }}
+            >
               Revert
             </Button>
             <Button type="submit" size="sm" disabled={!dirty || busy} className="bg-brand text-brand-foreground hover:bg-brand-strong">
+              {busy ? <Loader2 className="animate-spin" /> : null}
               Save
             </Button>
           </div>

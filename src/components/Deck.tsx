@@ -6,19 +6,32 @@ import { useStore } from "@/lib/store";
 import { CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu } from "@tauri-apps/api/menu";
 import { LogicalPosition, LogicalSize } from "@tauri-apps/api/dpi";
 import { THEMES } from "@/lib/theme";
-import { PeakMeter, Scope, Spectrum, fmtDb, useReadout } from "./meters/Meters";
+import { getOffset, loadLyrics } from "@/lib/lrclib";
+import type { Lyrics } from "@/lib/api";
+import { PeakMeter, Scope, Spectrogram, Spectrum, Vectorscope, fmtDb, useReadout } from "./meters/Meters";
 import { fmtTime } from "@/lib/utils";
 
 const METERS = [
   { id: "spectrum", label: "Spectrum" },
+  { id: "spectrogram", label: "Spectrogram" },
   { id: "scope", label: "Scope" },
+  { id: "vectorscope", label: "Vectorscope" },
   { id: "peak", label: "Peak" },
   { id: "lufs", label: "LUFS" },
+  { id: "lyrics", label: "Lyrics" },
   { id: "cover", label: "Cover" },
 ] as const;
 
 /** Natural width each meter adds, used to grow/shrink the window on toggle. */
-const METER_WIDTH: Record<string, number> = { spectrum: 150, scope: 70, peak: 56, lufs: 48 };
+const METER_WIDTH: Record<string, number> = {
+  spectrum: 150,
+  spectrogram: 150,
+  scope: 70,
+  vectorscope: 40,
+  peak: 56,
+  lufs: 48,
+  lyrics: 220,
+};
 const GAP = 14;
 const SIZE_KEY = "mono.deck.size";
 
@@ -32,6 +45,38 @@ function Lufs() {
         {fmtDb(v)}
       </div>
       <div className="mt-[0.4em] font-mono text-[clamp(10px,12vh,15px)] text-(--deck-mut)">LUFS</div>
+    </div>
+  );
+}
+
+/** Current synced lyric line (same sources and timing nudge as theater mode). */
+function DeckLyrics() {
+  const path = useStore((s) => s.track?.meta.path);
+  const pos = useStore((s) => Math.round(s.pos * 10) / 10);
+  const online = useStore((s) => s.config?.lyricsOnline ?? false);
+  const [lyrics, setLyrics] = useState<Lyrics | null>(null);
+  useEffect(() => {
+    setLyrics(null);
+    if (!path) return;
+    let live = true;
+    loadLyrics(path)
+      .then((l) => live && setLyrics(l))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [path, online]);
+  let line = "";
+  if (lyrics?.synced && path) {
+    const t = pos + 0.25 - getOffset(path);
+    for (const l of lyrics.lines) {
+      if ((l.time ?? 0) <= t) line = l.text;
+      else break;
+    }
+  }
+  return (
+    <div className="min-w-[120px] flex-[2_1_220px] truncate text-[clamp(12px,20vh,26px)] font-medium text-(--deck-acc)">
+      {line || (lyrics?.synced ? "♪" : "")}
     </div>
   );
 }
@@ -192,7 +237,9 @@ export function Deck() {
           </div>
         </div>
         {meters.has("spectrum") && <Spectrum className="h-[64vh] min-w-[70px] flex-[2_1_150px]" />}
+        {meters.has("spectrogram") && <Spectrogram className="h-[64vh] min-w-[70px] flex-[2_1_150px]" />}
         {meters.has("scope") && <Scope className="h-[64vh] min-w-[50px] flex-[1_1_70px]" />}
+        {meters.has("vectorscope") && <Vectorscope className="aspect-square h-[64vh] shrink-0" />}
         {meters.has("peak") && (
           <div className="flex w-[clamp(56px,30vh,130px)] shrink-0 flex-col gap-[0.4em] text-[clamp(10px,12vh,15px)]">
             <PeakMeter className="h-[clamp(14px,24vh,56px)] w-full" />
@@ -203,6 +250,7 @@ export function Deck() {
           </div>
         )}
         {meters.has("lufs") && <Lufs />}
+        {meters.has("lyrics") && <DeckLyrics />}
       </div>
 
           <div className="absolute top-1 right-1.5 flex gap-0.5 rounded-md bg-(--deck-bg) pl-1.5 opacity-0 transition-opacity group-hover:opacity-100 [&_button]:size-6! [&_svg]:size-3.5!">

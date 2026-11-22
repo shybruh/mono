@@ -19,7 +19,11 @@
 - **Meters:** spectrum, oscilloscope, peak and loudness, on `V`.
 - **Mini player** that stays on top (`M`) and scales as you resize it.
 - **Themes**, including frosted glass and your own colours; the accent can follow the album art.
-- **Tag and cover-art editing**, listening history, optional Discord status, and automatic updates.
+- **Queue, Play next and shuffle**, plus smart crates built from rules and an album grid.
+- **BPM and key detection**, sortable columns you choose, and multi-select tag editing.
+- **Equaliser, crossfeed and crossfade**, a sleep timer, and resume where you left off.
+- **Lyrics sync tool** to time your own lyrics, and lyrics in the mini player.
+- **Tag and cover-art editing**, listening history, optional Discord status with album art, and automatic updates.
 
 Plays MP3, FLAC, WAV, OGG and M4A/AAC.
 
@@ -49,7 +53,7 @@ Same MP3 in every player, Ryzen 7 5700X3D, Windows 11:
 
 ## Shortcuts
 
-`Space` play/pause · `←` `→` seek (`Shift` for 30 s) · `N` `P` next/previous · `[` `]` `\` loop A/B/clear · `0` reset speed and pitch · `R` repeat · `F` theater · `F11` fullscreen · `V` visualiser · `M` mini player · `T` tags · `Ctrl+K` search · `Ctrl+,` settings
+`Space` play/pause · `←` `→` seek (`Shift` for 30 s) · `N` `P` next/previous · `Q` up next · `S` shuffle · `[` `]` `\` loop A/B/clear · `0` reset speed and pitch · `R` repeat · `F` theater · `F11` fullscreen · `V` visualiser · `M` mini player · `T` tags · `Ctrl+K` search · `Ctrl+,` settings
 
 ## Notes
 

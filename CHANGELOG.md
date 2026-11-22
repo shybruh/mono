@@ -10,6 +10,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Added an AI disclosure and the license to the README.
 
 ### Added
+- **Queue**: *Play next* and *Add to queue* from the track list's right-click menu, an **Up next** panel (`Q`) to reorder by dragging, remove or jump to tracks, and **Shuffle** (`S`), which shuffles what's left and restores the original order when turned off.
+- **Columns you choose**: right-click the track-list header to show or hide Artist, Album, Album artist, Genre, Year, BPM, Key, Gain, Bitrate, Format, Added and Time. Click a header to sort (again to reverse, a third time for folder order). Key shows as musical (Am) or Camelot (8A).
+- **Multi-select**: Ctrl-click, Shift-click, Shift+arrows and `Ctrl+A`. Right-click actions apply to the whole selection, and the tag drawer edits many tracks at once: fields that differ show "Mixed" and only fields you change are written.
+- **BPM and key detection** (*Analyse BPM and key* on the selection or the whole crate): tempo from an onset-strength autocorrelation, key from a chroma profile, written to the files' BPM and key tags. Both are also editable in the tag drawer.
+- **Equaliser** (10 bands, presets, pre-amp), **headphone crossfeed** and **crossfade** (0-12 s; 0 stays gapless), in a Sound panel on the transport bar.
+- **Sleep timer**: pause after 15-90 minutes or at the end of the current track, fading out over the last 10 seconds.
+- **Resume where you left off**: Mono reopens on the last queue, track and position, and tracks of 15 minutes or more (mixes, audiobooks) each remember where you stopped.
+- **One window at a time**: opening a file while Mono is running hands it to the open window. The installer registers Mono for MP3, FLAC, WAV, OGG and M4A/AAC so it appears in *Open with*.
+- **Smart crates**: saved rules (genre, BPM range, key, year, added in the last N days and more, matching all or any) that update with your library.
+- **Album grid**: browse the current crate by cover art; open an album or play it from its cover.
+- **Spectrogram and vectorscope** visualiser modes, in the visualiser panel and the micro-deck.
+- **Lyrics in the micro-deck**: the current synced line next to the meters.
+- **Lyrics sync tool** (theater mode): tap along to time lyrics line by line and save them as an `.lrc` next to the song.
 - Mono is released under the MIT License (`LICENSE`).
 - **Album art in the Discord status**, like Spotify: the cover is shown large with the mono logo as a small badge. Discord can only display images from a public link, so the cover is looked up on iTunes (*Album art in Discord*, on by default when Discord is enabled); with no match the mono logo is shown instead.
 - Logo files in `docs/brand/`, including a 1024 px square version for the Discord application's `mono` art asset.

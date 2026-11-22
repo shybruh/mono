@@ -24,7 +24,9 @@ use rtrb::{Consumer, Producer, RingBuffer};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 
+use super::dsp::{Crossfeed, EqSettings, Equalizer};
 use super::output::{self, Output};
+use super::resume::{self, Positions, Session, LONG_TRACK};
 use super::resample::Resample;
 use super::source::Source;
 use super::stretch::Stretch;
@@ -122,6 +124,23 @@ pub struct Engine {
     mid: Vec<f32>,
     last_emit: Instant,
     last_pos: f64,
+
+    eq_settings: EqSettings,
+    eq: Equalizer,
+    crossfeed_level: f32,
+    crossfeed: Crossfeed,
+    /// Crossfade length in seconds; 0 keeps playback gapless.
+    xf_secs: f64,
+    /// Next-track audio decoded ahead for the crossfade overlap.
+    xf_buf: Vec<f32>,
+    /// Overlap left over when the outgoing track ends; played first.
+    xf_carry: Vec<f32>,
+    xf_started: bool,
+
+    data_dir: std::path::PathBuf,
+    positions: Positions,
+    resume_on: bool,
+    last_save: Instant,
 }
 
 impl Engine {
@@ -133,6 +152,8 @@ impl Engine {
         analysis_tx: Sender<(Consumer<f32>, u32)>,
         rg_mode: String,
         rg_preamp: f32,
+        data_dir: std::path::PathBuf,
+        resume_on: bool,
     ) {
         std::thread::Builder::new()
             .name("mono-audio".into())
@@ -173,6 +194,18 @@ impl Engine {
                     mid: Vec::with_capacity(8192),
                     last_emit: Instant::now(),
                     last_pos: -1.0,
+                    eq_settings: EqSettings::default(),
+                    eq: Equalizer::new(EqSettings::default(), 48_000),
+                    crossfeed_level: 0.0,
+                    crossfeed: Crossfeed::new(0.0, 48_000),
+                    xf_secs: 0.0,
+                    xf_buf: Vec::new(),
+                    xf_carry: Vec::new(),
+                    xf_started: false,
+                    positions: Positions::load(&data_dir),
+                    data_dir,
+                    resume_on,
+                    last_save: Instant::now(),
                 };
                 e.open_output();
                 e.run();
@@ -186,6 +219,8 @@ impl Engine {
         match output::open(self.shared.clone(), aprod) {
             Ok(out) => {
                 self.out_sr = out.sample_rate;
+                self.eq.configure(self.eq_settings.clone(), out.sample_rate);
+                self.crossfeed.configure(self.crossfeed_level, out.sample_rate);
                 let _ = self.analysis_tx.send((acons, out.sample_rate));
                 self.output = Some(out);
             }
@@ -355,7 +390,22 @@ impl Engine {
                 }
                 self.emit_progress(true);
             }
-            Cmd::Shutdown => return false,
+            Cmd::Restore { paths, index, pos } => {
+                self.queue = paths;
+                self.load_index_at(index, false, Some(pos));
+            }
+            Cmd::SetResume(on) => self.resume_on = on,
+            Cmd::SetDsp { eq, crossfeed, crossfade } => {
+                self.eq_settings = eq.clone();
+                self.eq.configure(eq, self.out_sr);
+                self.crossfeed_level = crossfeed;
+                self.crossfeed.configure(crossfeed, self.out_sr);
+                self.xf_secs = crossfade.clamp(0.0, 12.0);
+            }
+            Cmd::Shutdown => {
+                self.save_resume();
+                return false;
+            }
         }
         true
     }
@@ -367,6 +417,9 @@ impl Engine {
         }
         self.playing = on && self.cur.is_some();
         self.shared.paused.store(!self.playing, Ordering::Release);
+        if !self.playing {
+            self.save_resume();
+        }
         self.emit_state();
         let _ = self.hooks.send(Hook::Playing { playing: self.playing, pos: self.display_pos() });
     }
@@ -407,6 +460,13 @@ impl Engine {
     }
 
     fn flush(&mut self) {
+        // A crossfade in progress has already read into the next track.
+        if self.xf_started {
+            self.next = None;
+            self.xf_started = false;
+        }
+        self.xf_buf.clear();
+        self.xf_carry.clear();
         self.pending.clear();
         self.pending_pos = 0;
         self.produced = self.written;
@@ -421,6 +481,13 @@ impl Engine {
     }
 
     fn load_index(&mut self, index: usize, play: bool) {
+        self.load_index_at(index, play, None);
+    }
+
+    /// Loads a queue entry, starting at `start` if given, otherwise at the
+    /// remembered position of a long track (or the beginning).
+    fn load_index_at(&mut self, index: usize, play: bool, start: Option<f64>) {
+        self.save_resume();
         self.flush();
         self.next = None;
         self.next_failed = None;
@@ -444,7 +511,20 @@ impl Engine {
             self.emit_state();
             return;
         };
-        let mark = Mark { at: self.produced, gen: cur.gen, index: cur.index, pos: 0.0 };
+        let remembered = if self.resume_on && cur.meta.duration >= LONG_TRACK {
+            self.positions.get(&cur.meta.path)
+        } else {
+            None
+        };
+        let mut pos = 0.0;
+        if let Some(t) = start.or(remembered).filter(|t| *t > 1.0) {
+            let cur = self.cur.as_mut().unwrap();
+            if cur.src.seek(t).is_ok() {
+                pos = cur.src.position();
+            }
+        }
+        let cur = self.cur.as_ref().unwrap();
+        let mark = Mark { at: self.produced, gen: cur.gen, index: cur.index, pos };
         self.remember(cur.gen, cur.index, cur.meta.clone(), cur.gain);
         self.marks.push_back(mark);
         self.playing = play;
@@ -501,14 +581,26 @@ impl Engine {
         }
 
         self.raw.clear();
+        // Samples already gain-adjusted (crossfade mix or its leftover).
+        let mut pre_gained = false;
+        let ok = if !self.xf_carry.is_empty() {
+            std::mem::swap(&mut self.raw, &mut self.xf_carry);
+            pre_gained = true;
+            true
+        } else {
+            let cur = self.cur.as_mut().unwrap();
+            cur.src.next_chunk(&mut self.raw).unwrap_or_else(|e| {
+                eprintln!("{e}");
+                false
+            })
+        };
         let cur = self.cur.as_mut().unwrap();
-        let ok = cur.src.next_chunk(&mut self.raw).unwrap_or_else(|e| {
-            eprintln!("{e}");
-            false
-        });
 
         if !ok {
             if let Some(next) = self.next.take() {
+                // Anything of the next track mixed ahead plays first.
+                self.xf_carry = std::mem::take(&mut self.xf_buf);
+                self.xf_started = false;
                 self.remember(next.gen, next.index, next.meta.clone(), next.gain);
                 self.cur = Some(next);
                 self.next_failed = None;
@@ -529,7 +621,47 @@ impl Engine {
                 pos = b;
             }
         }
-        if (cur.gain - 1.0).abs() > 1e-4 {
+        // Crossfade: over the last `xf_secs`, fade this track out and the
+        // already-loaded next track in (equal power, same sample rate only).
+        let looping = self.loop_a.is_some() && self.loop_b.is_some();
+        if !pre_gained && self.xf_secs > 0.05 && !looping {
+            if let Some(next) = self.next.as_mut() {
+                let dur = cur.meta.duration.max(cur.src.duration);
+                let xf = self.xf_secs.min(dur / 2.0);
+                let fade_start = dur - xf;
+                if next.src.sample_rate == sr && dur > 0.0 && pos > fade_start {
+                    self.xf_started = true;
+                    let need = self.raw.len();
+                    while self.xf_buf.len() < need {
+                        let before = self.xf_buf.len();
+                        match next.src.next_chunk(&mut self.xf_buf) {
+                            Ok(true) => {
+                                for s in &mut self.xf_buf[before..] {
+                                    *s *= next.gain;
+                                }
+                            }
+                            _ => break,
+                        }
+                    }
+                    let frames = need / 2;
+                    let have = self.xf_buf.len() / 2;
+                    for f in 0..frames {
+                        let t = pos - (frames - f) as f64 / sr as f64;
+                        let x = ((t - fade_start) / xf).clamp(0.0, 1.0) as f32 * std::f32::consts::FRAC_PI_2;
+                        let (out_g, in_g) = (x.cos() * cur.gain, x.sin());
+                        for ch in 0..2 {
+                            let i = f * 2 + ch;
+                            let incoming = if f < have { self.xf_buf[i] } else { 0.0 };
+                            self.raw[i] = self.raw[i] * out_g + incoming * in_g;
+                        }
+                    }
+                    let used = need.min(self.xf_buf.len());
+                    self.xf_buf.drain(..used);
+                    pre_gained = true;
+                }
+            }
+        }
+        if !pre_gained && (cur.gain - 1.0).abs() > 1e-4 {
             for s in self.raw.iter_mut() {
                 *s *= cur.gain;
             }
@@ -562,6 +694,9 @@ impl Engine {
             self.stretch = None;
             self.pending.extend_from_slice(resampled);
         }
+        // Output-stage effects at the device rate.
+        self.eq.process(&mut self.pending[start..]);
+        self.crossfeed.process(&mut self.pending[start..]);
         let frames = (self.pending.len() - start) / 2;
         self.produced += frames as u64;
         self.marks.push_back(Mark { at: self.produced, gen, index, pos });
@@ -574,7 +709,7 @@ impl Engine {
         }
         let Some(cur) = &self.cur else { return };
         let dur = cur.meta.duration.max(cur.src.duration);
-        let near_end = dur <= 0.0 || dur - cur.src.position() < PREBUFFER_SECS;
+        let near_end = dur <= 0.0 || dur - cur.src.position() < PREBUFFER_SECS.max(self.xf_secs + 2.0);
         if !near_end {
             return;
         }
@@ -661,6 +796,13 @@ impl Engine {
         self.advance_shown();
         let Some(m) = self.shown else { return };
         if m.gen != self.shown_gen {
+            // Leaving a track: remember where a long one was left.
+            if let Some(prev) = self.gens.iter().find(|g| g.0 == self.shown_gen) {
+                let (path, dur) = (prev.2.path.clone(), prev.2.duration);
+                if self.last_pos >= 0.0 {
+                    self.positions.note(&path, dur, self.last_pos);
+                }
+            }
             self.shown_gen = m.gen;
             if let Some(entry) = self.gens.iter().find(|g| g.0 == m.gen).cloned() {
                 self.emit_track(entry.1, entry.2.clone(), entry.3);
@@ -679,6 +821,28 @@ impl Engine {
                 .unwrap_or(0.0);
             let _ = self.app.emit("position", PositionEvent { pos, duration });
         }
+        if self.playing && self.last_save.elapsed() > Duration::from_secs(5) {
+            self.save_resume();
+        }
+    }
+
+    /// Persists the session and long-track positions (cheap, throttled by callers).
+    fn save_resume(&mut self) {
+        self.last_save = Instant::now();
+        if !self.resume_on {
+            return;
+        }
+        let Some(index) = self.display_index() else { return };
+        if self.queue.is_empty() {
+            return;
+        }
+        let pos = self.display_pos();
+        if let Some(entry) = self.gens.iter().find(|g| g.0 == self.shown_gen) {
+            let (path, dur) = (entry.2.path.clone(), entry.2.duration);
+            self.positions.note(&path, dur, pos);
+        }
+        self.positions.save();
+        resume::save_session(&self.data_dir, &Session { queue: self.queue.clone(), index, pos });
     }
 
     fn emit_track(&self, index: usize, meta: TrackMeta, gain: f32) {

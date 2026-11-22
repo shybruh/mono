@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
-import { ChevronRight, Folder, FolderOpen, FolderPlus, History, ListMusic } from "lucide-react";
+import { ChevronRight, Folder, FolderOpen, FolderPlus, History, ListFilter, ListMusic, Plus } from "lucide-react";
+import { newSmartCrate } from "./SmartCrateDialog";
 import type { CrateNode } from "@/lib/api";
-import { useStore, viewKey, type View } from "@/lib/store";
+import { EMPTY, useStore, viewKey, type View } from "@/lib/store";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -99,6 +100,54 @@ const HISTORY: View[] = [
   { kind: "history", days: 30, name: "Last 30 days" },
 ];
 
+function SmartCrates() {
+  const smart = useStore((s) => s.config?.smartCrates ?? EMPTY);
+  const current = useStore((s) => viewKey(s.view));
+  const s = useStore.getState;
+  return (
+    <>
+      <div className="mt-3 flex h-7 items-center justify-between px-1.5 text-[11px] text-muted-foreground/70">
+        <span>Smart crates</span>
+        <button
+          aria-label="New smart crate"
+          onClick={() => s().setSmartEdit(newSmartCrate())}
+          className="rounded p-1 hover:bg-accent hover:text-foreground"
+        >
+          <Plus className="size-3.5" />
+        </button>
+      </div>
+      {smart.map((c) => {
+        const v = { kind: "smart" as const, id: c.id, name: c.name };
+        return (
+          <ContextMenu key={c.id}>
+            <ContextMenuTrigger asChild>
+              <button
+                onClick={() => s().openView(v)}
+                onDoubleClick={() => s().setSmartEdit(c)}
+                className={cn(
+                  "flex h-7 w-full items-center gap-1.5 rounded-md px-2 text-left text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground",
+                  current === viewKey(v) && "bg-accent text-foreground",
+                )}
+              >
+                <ListFilter className="size-4 shrink-0" />
+                <span className="truncate">{c.name}</span>
+              </button>
+            </ContextMenuTrigger>
+            <ContextMenuContent>
+              <ContextMenuItem onSelect={() => s().setSmartEdit(c)}>Edit rules</ContextMenuItem>
+              <ContextMenuItem
+                onSelect={() => s().setConfig({ smartCrates: smart.filter((x) => x.id !== c.id) })}
+              >
+                Delete
+              </ContextMenuItem>
+            </ContextMenuContent>
+          </ContextMenu>
+        );
+      })}
+    </>
+  );
+}
+
 export function Sidebar() {
   const crates = useStore((s) => s.crates);
   const current = useStore((s) => viewKey(s.view));
@@ -128,6 +177,8 @@ export function Sidebar() {
           {crates.map((c) => (
             <Row key={c.path} node={c} depth={0} isRoot />
           ))}
+
+          <SmartCrates />
 
           {historyOn && (
             <>

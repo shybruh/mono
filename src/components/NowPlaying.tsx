@@ -1,5 +1,6 @@
 import { useStore } from "@/lib/store";
-import { basename } from "@/lib/utils";
+import { basename, cn } from "@/lib/utils";
+import { LayoutGrid, Rows3 } from "lucide-react";
 
 function Chip({ children, muted }: { children: React.ReactNode; muted?: boolean }) {
   return (
@@ -20,6 +21,7 @@ export function NowPlaying() {
   const cover = useStore((s) => s.cover);
   const view = useStore((s) => s.view);
   const queueKey = useStore((s) => s.queueKey);
+  const layout = useStore((s) => s.layout);
 
   const m = track?.meta;
   const source = (() => {
@@ -33,7 +35,23 @@ export function NowPlaying() {
   const ch = m?.channels === 1 ? "Mono" : m?.channels === 2 ? "Stereo" : m?.channels ? `${m.channels} ch` : null;
 
   return (
-    <div className="flex items-end gap-4 border-b p-4">
+    <div className="relative flex items-end gap-4 border-b p-4">
+      <div className="absolute top-3 right-3 flex gap-0.5 rounded-md border p-0.5">
+        {(["list", "albums"] as const).map((l) => (
+          <button
+            key={l}
+            aria-label={l === "list" ? "Track list" : "Album grid"}
+            title={l === "list" ? "Track list" : "Album grid"}
+            onClick={() => useStore.getState().setLayout(l)}
+            className={cn(
+              "rounded p-1 text-muted-foreground hover:text-foreground [&_svg]:size-3.5",
+              layout === l && "bg-accent text-foreground",
+            )}
+          >
+            {l === "list" ? <Rows3 /> : <LayoutGrid />}
+          </button>
+        ))}
+      </div>
       <button
         aria-label="Theater"
         onClick={() => useStore.getState().toggleTheater(true)}

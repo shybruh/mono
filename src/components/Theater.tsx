@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, type Lyrics } from "@/lib/api";
 import { useStore } from "@/lib/store";
 import { chooseVersion, getOffset, loadLyrics, setOffset, versions, type Version } from "@/lib/lrclib";
-import { ListMusic, Loader2, Maximize, Minimize, Minus, Plus, X } from "lucide-react";
+import { ListMusic, Loader2, Maximize, Minimize, Minus, Plus, Timer, X } from "lucide-react";
+import { LyricsSync } from "./LyricsSync";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn, fmtTime } from "@/lib/utils";
 
@@ -211,6 +212,7 @@ export function Theater({ fullscreen = false }: { fullscreen?: boolean }) {
   const path = track?.meta.path;
   const [offset, setOffsetState] = useState(0);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     setOffsetState(path ? getOffset(path) : 0);
@@ -241,6 +243,7 @@ export function Theater({ fullscreen = false }: { fullscreen?: boolean }) {
     [m],
   );
   const hasLyrics = !!lyrics && lyrics.lines.length > 0;
+  const showPane = hasLyrics || syncing;
 
   return (
     <div
@@ -264,18 +267,18 @@ export function Theater({ fullscreen = false }: { fullscreen?: boolean }) {
         className={cn(
           "relative flex min-h-0 flex-1 items-center gap-[5vw] px-[6vw]",
           fullscreen ? "pt-[6vh] pb-[11vh]" : "py-8",
-          !hasLyrics && "justify-center",
+          !showPane && "justify-center",
         )}
       >
-        <div className={cn("flex shrink-0 flex-col", !hasLyrics && "items-center text-center")}>
+        <div className={cn("flex shrink-0 flex-col", !showPane && "items-center text-center")}>
           <div
             className="aspect-square overflow-hidden rounded-xl bg-brand-wash shadow-2xl shadow-black/50"
             style={{
               width: fullscreen
-                ? hasLyrics
+                ? showPane
                   ? "min(60vh, 36vw)"
                   : "min(66vh, 56vw)"
-                : hasLyrics
+                : showPane
                   ? "min(52vh, 34vw)"
                   : "min(58vh, 50vw)",
             }}
@@ -292,7 +295,18 @@ export function Theater({ fullscreen = false }: { fullscreen?: boolean }) {
             </div>
           )}
         </div>
-        {hasLyrics && (
+        {syncing && (
+          <div className="h-full min-w-0 flex-1">
+            <LyricsSync
+              initial={lyrics}
+              onDone={(saved) => {
+                setSyncing(false);
+                if (saved) setLyrics(saved);
+              }}
+            />
+          </div>
+        )}
+        {hasLyrics && !syncing && (
           <div className="h-full min-w-0 flex-1">
             <LyricsPane lyrics={lyrics!} offset={offset} />
           </div>
@@ -323,6 +337,11 @@ export function Theater({ fullscreen = false }: { fullscreen?: boolean }) {
           </>
         )}
         {online && m && <VersionsPicker onPick={setLyrics} onOpenChange={setPickerOpen} />}
+        {m && !syncing && (
+          <button className={ctl} title="Sync lyrics" onClick={() => setSyncing(true)}>
+            <Timer />
+          </button>
+        )}
         <button
           className={ctl}
           title={fullscreen ? "Exit fullscreen (Esc)" : "Fullscreen (F11)"}

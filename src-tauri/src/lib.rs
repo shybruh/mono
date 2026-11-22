@@ -1,9 +1,11 @@
-﻿mod audio;
+﻿mod analysis;
+mod audio;
 mod config;
 mod integrations;
 mod library;
 mod lyrics;
 mod meta;
+mod smart;
 mod tags;
 
 use std::path::{Path, PathBuf};
@@ -52,6 +54,16 @@ fn update_config(app: AppHandle, state: State<AppState>, patch: serde_json::Valu
     if before.rg_mode != after.rg_mode || before.rg_preamp != after.rg_preamp {
         state.player.send(Cmd::SetReplayGain { mode: after.rg_mode.clone(), preamp: after.rg_preamp });
     }
+    if before.eq != after.eq || before.crossfeed != after.crossfeed || before.crossfade != after.crossfade {
+        state.player.send(Cmd::SetDsp {
+            eq: after.eq.clone(),
+            crossfeed: after.crossfeed,
+            crossfade: after.crossfade as f64,
+        });
+    }
+    if before.resume != after.resume {
+        state.player.send(Cmd::SetResume(after.resume));
+    }
     if before.repeat != after.repeat {
         state.player.send(Cmd::SetRepeat(after.repeat));
     }
@@ -95,6 +107,18 @@ async fn history_tracks(app: AppHandle, days: u64) -> Res<Vec<TrackMeta>> {
         let paths: Vec<PathBuf> =
             integrations::read_history(&state.data_dir, days).into_iter().map(PathBuf::from).collect();
         library::metas(&state.meta, &paths)
+    })
+    .await
+    .map_err(err)
+}
+
+/// Tracks matching a smart crate's rules across all watched folders.
+#[tauri::command]
+async fn smart_tracks(app: AppHandle, def: smart::SmartDef) -> Res<Vec<TrackMeta>> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let files = library::all_files(&state.config.get().roots);
+        smart::filter(&def, library::metas(&state.meta, &files))
     })
     .await
     .map_err(err)
@@ -149,6 +173,13 @@ fn store_lyrics(state: State<AppState>, path: String, raw: Option<String>, pinne
     lyrics::store(&meta, &state.data_dir, raw.as_deref(), pinned)
 }
 
+/// Writes lyrics synced in the app as <track>.lrc.
+#[tauri::command]
+fn save_lrc(state: State<AppState>, path: String, lrc: String) -> Res<Option<lyrics::Lyrics>> {
+    let meta = state.meta.get(Path::new(&path));
+    lyrics::save_sidecar(&meta, &state.data_dir, &lrc).map_err(err)
+}
+
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 struct AppInfo {
@@ -189,6 +220,22 @@ fn set_cover(state: State<AppState>, path: String, image: String) -> Res<()> {
     tags::set_cover(Path::new(&path), Path::new(&image)).map_err(err)?;
     after_tag_write(&state, &path);
     Ok(())
+}
+
+/// Detects BPM and key, writes them into the file's tags and returns the
+/// refreshed metadata.
+#[tauri::command]
+async fn analyse_track(app: AppHandle, path: String) -> Res<TrackMeta> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let p = Path::new(&path);
+        let a = analysis::analyse(p).map_err(err)?;
+        tags::write_bpm_key(p, a.bpm, a.key.as_deref()).map_err(err)?;
+        after_tag_write(&state, &path);
+        Ok(state.meta.get(p))
+    })
+    .await
+    .map_err(err)?
 }
 
 #[tauri::command]
@@ -339,9 +386,27 @@ fn discord_art(state: State<AppState>, path: String, url: Option<String>) {
     let _ = state.hooks.send(Hook::Art { path, url });
 }
 
+/// Lets the audio thread save the session before the process exits.
+fn shutdown_and_exit(app: &AppHandle) {
+    if let Some(state) = app.try_state::<AppState>() {
+        state.player.send(Cmd::Shutdown);
+        std::thread::sleep(std::time::Duration::from_millis(150));
+    }
+    app.exit(0);
+}
+
 #[tauri::command]
 fn quit(app: AppHandle) {
-    app.exit(0);
+    shutdown_and_exit(&app);
+}
+
+/// Audio files among command-line arguments.
+fn audio_args(args: impl Iterator<Item = String>) -> Vec<String> {
+    args.filter(|a| {
+        let p = Path::new(a);
+        p.is_file() && meta::is_audio(p)
+    })
+    .collect()
 }
 
 // ------------------------------------------------------------------ entry
@@ -349,6 +414,26 @@ fn quit(app: AppHandle) {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Must be first: a second launch (e.g. "Open with Mono" while running)
+        // hands its files to this instance and exits.
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            let files = audio_args(argv.into_iter().skip(1));
+            if !files.is_empty() {
+                let _ = app.emit("open-files", files);
+            }
+            if let Some(w) = app.get_webview_window("main") {
+                if !w.is_visible().unwrap_or(true) {
+                    // Micro-deck mode: keep the deck, just bring it forward.
+                    if let Some(deck) = app.get_webview_window("deck") {
+                        let _ = deck.set_focus();
+                        return;
+                    }
+                    let _ = w.show();
+                }
+                let _ = w.unminimize();
+                let _ = w.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
@@ -358,6 +443,7 @@ pub fn run() {
             let handle = app.handle().clone();
             let cfg_dir = app.path().app_config_dir()?;
             let data_dir = app.path().app_data_dir()?;
+            let data_dir_for_engine = data_dir.clone();
             let config = ConfigStore::load(cfg_dir);
             let cfg = config.get();
 
@@ -379,20 +465,33 @@ pub fn run() {
             });
 
             audio::meters::spawn(handle.clone(), shared.clone(), analysis_rx);
-            Engine::spawn(handle.clone(), shared, rx, hook_tx, analysis_tx, cfg.rg_mode.clone(), cfg.rg_preamp);
+            Engine::spawn(
+                handle.clone(),
+                shared,
+                rx,
+                hook_tx,
+                analysis_tx,
+                cfg.rg_mode.clone(),
+                cfg.rg_preamp,
+                data_dir_for_engine,
+                cfg.resume,
+            );
             let _ = tx.send(Cmd::SetRepeat(cfg.repeat));
+            let _ = tx.send(Cmd::SetDsp {
+                eq: cfg.eq.clone(),
+                crossfeed: cfg.crossfeed,
+                crossfade: cfg.crossfade as f64,
+            });
 
             // Files passed on the command line ("Open with", drag onto the exe)
             // start playing straight away.
-            let launch: Vec<String> = std::env::args()
-                .skip(1)
-                .filter(|a| {
-                    let p = Path::new(a);
-                    p.is_file() && meta::is_audio(p)
-                })
-                .collect();
+            let launch = audio_args(std::env::args().skip(1));
             if !launch.is_empty() {
                 let _ = tx.send(Cmd::PlayQueue { paths: launch, index: 0 });
+            } else if cfg.resume {
+                if let Some(s) = audio::resume::load_session(&app.state::<AppState>().data_dir) {
+                    let _ = tx.send(Cmd::Restore { paths: s.queue, index: s.index, pos: s.pos });
+                }
             }
 
             let state = app.state::<AppState>();
@@ -403,7 +502,7 @@ pub fn run() {
         .on_window_event(|window, event| match event {
             // Closing the main window quits, even if the deck is open.
             tauri::WindowEvent::CloseRequested { .. } if window.label() == "main" => {
-                window.app_handle().exit(0);
+                shutdown_and_exit(window.app_handle());
             }
             tauri::WindowEvent::Destroyed => {
                 if let Some(state) = window.app_handle().try_state::<AppState>() {
@@ -419,16 +518,19 @@ pub fn run() {
             tracks,
             history_tracks,
             library_index,
+            smart_tracks,
             track_meta,
             waveform,
             cover,
             lyrics,
             store_lyrics,
+            save_lrc,
             app_info,
             save_playlist,
             write_tags,
             set_cover,
             set_cover_data,
+            analyse_track,
             remove_cover,
             renumber,
             play_queue,

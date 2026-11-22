@@ -1,82 +1,127 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { fillMissing, needsInfo, useFill } from "@/lib/fill";
 import { save } from "@tauri-apps/plugin-dialog";
-import { api, type TrackMeta } from "@/lib/api";
+import { ArrowDown, ArrowUp } from "lucide-react";
+import { fillMissing, needsInfo, useFill } from "@/lib/fill";
+import { analyse, useAnalysis } from "@/lib/analysis";
+import { api } from "@/lib/api";
 import { useStore } from "@/lib/store";
+import { COLUMN, COLUMNS, DEFAULT_VISIBLE, type ColId, type ColumnDef } from "@/lib/columns";
 import {
   ContextMenu,
+  ContextMenuCheckboxItem,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuRadioGroup,
+  ContextMenuRadioItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
-import { cn, fmtTime } from "@/lib/utils";
-import { ResizeHandle, startDrag, useSizes } from "@/hooks/useDragSize";
+import { cn } from "@/lib/utils";
+import { ResizeHandle, startDrag } from "@/hooks/useDragSize";
 
 const ROW = 28;
-const DEFAULT_COLS = { num: 44, title: 340, artist: 200, album: 200, gain: 76, time: 60 };
-const LIMITS: Record<keyof typeof DEFAULT_COLS, [number, number]> = {
-  num: [28, 90],
-  title: [120, 1200],
-  artist: [60, 800],
-  album: [60, 800],
-  gain: [48, 160],
-  time: [44, 160],
-};
 // Header padding: px-3 + 2 px row accent border + the list's 12 px scrollbar gutter.
 const PAD = 12 + 2 + 12 + 12;
-type Col = keyof typeof DEFAULT_COLS;
 
-function gainOf(m: TrackMeta, mode: string) {
-  const g = mode === "album" ? (m.rgAlbumGain ?? m.rgTrackGain) : (m.rgTrackGain ?? m.rgAlbumGain);
-  if (g == null || mode === "off") return "—";
-  return `${g < 0 ? "−" : "+"}${Math.abs(g).toFixed(1)} dB`;
+function load<T>(key: string, fallback: T): T {
+  try {
+    const v = localStorage.getItem(key);
+    return v ? { ...(fallback as object), ...JSON.parse(v) } : fallback;
+  } catch {
+    return fallback;
+  }
+}
+function persist(key: string, v: unknown) {
+  try {
+    localStorage.setItem(key, JSON.stringify(v));
+  } catch {
+    /* ignore */
+  }
+}
+
+const DEFAULT_WIDTHS = Object.fromEntries(COLUMNS.map((c) => [c.id, c.width])) as Record<ColId, number>;
+
+/** Visible columns (registry order, Time last) and their widths, remembered. */
+function useColumns() {
+  const [visible, setVisible] = useState<ColId[]>(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem("mono.layout.visible") ?? "null");
+      return Array.isArray(v) ? v.filter((id) => id in COLUMN) : DEFAULT_VISIBLE;
+    } catch {
+      return DEFAULT_VISIBLE;
+    }
+  });
+  const [widths, setWidths] = useState<Record<ColId, number>>(() => load("mono.layout.widths", DEFAULT_WIDTHS));
+
+  const cols = COLUMNS.filter((c) => c.fixed || visible.includes(c.id));
+  const toggle = (id: ColId) => {
+    const next = visible.includes(id) ? visible.filter((v) => v !== id) : [...visible, id];
+    setVisible(next);
+    persist("mono.layout.visible", next);
+  };
+  const setWidth = (id: ColId, w: number) => {
+    setWidths((prev) => {
+      const next = { ...prev, [id]: Math.round(w) };
+      persist("mono.layout.widths", next);
+      return next;
+    });
+  };
+  const reset = () => {
+    setVisible(DEFAULT_VISIBLE);
+    setWidths(DEFAULT_WIDTHS);
+    persist("mono.layout.visible", DEFAULT_VISIBLE);
+    persist("mono.layout.widths", DEFAULT_WIDTHS);
+  };
+  return { cols, visible, widths, toggle, setWidth, reset };
 }
 
 export function TrackList() {
   const list = useStore((s) => s.list);
   const loading = useStore((s) => s.listLoading);
   const selected = useStore((s) => s.selected);
+  const selection = useStore((s) => s.selection);
+  const sort = useStore((s) => s.sort);
+  const keyNotation = useStore((s) => s.keyNotation);
   const playingPath = useStore((s) => s.track?.meta.path);
   const isPlaying = useStore((s) => s.player.playing);
   const rgMode = useStore((s) => s.config?.rgMode ?? "track");
   const view = useStore((s) => s.view);
   const fill = useFill();
+  const analysing = useAnalysis();
   const missing = useMemo(() => list.filter(needsInfo).length, [list]);
-  const [cols, setCol, resetCols] = useSizes("mono.layout.columns", DEFAULT_COLS);
+  const selSet = useMemo(() => new Set(selection), [selection]);
+  const { cols, visible, widths, toggle, setWidth, reset } = useColumns();
   const header = useRef<HTMLDivElement>(null);
-  // Columns never overflow: Time is pinned to the right edge, spare space sits
-  // just before it, and Title / Artist / Album shrink toward their minimums
-  // when the window is too narrow (grid minmax tracks).
+
+  // Time (when shown) is pinned right with spare space before it; flexible
+  // text columns shrink toward their minimum when the window is narrow.
+  const hasTime = cols.some((c) => c.id === "time");
+  const track = (c: ColumnDef) => (c.flex ? `minmax(${c.min}px,${widths[c.id]}px)` : `${widths[c.id]}px`);
   const template = {
     gridTemplateColumns: [
-      `${cols.num}px`,
-      `minmax(${LIMITS.title[0]}px,${cols.title}px)`,
-      `minmax(${LIMITS.artist[0]}px,${cols.artist}px)`,
-      `minmax(${LIMITS.album[0]}px,${cols.album}px)`,
-      `${cols.gain}px`,
+      ...cols.filter((c) => c.id !== "time").map(track),
       "minmax(0,1fr)",
-      `${cols.time}px`,
+      ...(hasTime ? [track(COLUMN.time)] : []),
     ].join(" "),
   };
-  // A drag can only use the room that is actually free in the row.
-  const handle = (name: Col, side: "left" | "right" = "right") => (
+  const colStart = (c: ColumnDef) => (c.id === "time" ? { gridColumnStart: cols.length + 1 } : undefined);
+
+  const handle = (c: ColumnDef) => (
     <ResizeHandle
       visible
-      side={side}
+      side={c.id === "time" ? "left" : "right"}
       onPointerDown={(e) => {
         const inner = (header.current?.clientWidth ?? 0) - PAD;
-        const others = (Object.keys(cols) as Col[])
-          .filter((k) => k !== name)
-          .reduce((sum, k) => sum + cols[k], 0);
-        const max = Math.max(LIMITS[name][0], Math.min(LIMITS[name][1], inner - others));
-        startDrag(e, Math.min(cols[name], max), (v) => setCol(name, v), {
-          min: LIMITS[name][0],
+        const others = cols.filter((o) => o.id !== c.id).reduce((sum, o) => sum + widths[o.id], 0);
+        const max = Math.max(c.min, Math.min(c.max, inner - others));
+        startDrag(e, Math.min(widths[c.id], max), (v) => setWidth(c.id, v), {
+          min: c.min,
           max,
-          invert: side === "left",
+          invert: c.id === "time",
         });
       }}
-      onDoubleClick={resetCols}
+      onDoubleClick={reset}
     />
   );
 
@@ -96,7 +141,7 @@ export function TrackList() {
     scroller.current?.scrollTo({ top: 0 });
   }, [view]);
 
-  // Keep the keyboard selection in view.
+  // Keep the keyboard focus row in view.
   useEffect(() => {
     const el = scroller.current;
     if (!el || selected == null) return;
@@ -119,104 +164,225 @@ export function TrackList() {
     }
   };
 
+  const ctx = { rgMode, keyNotation };
+  const status = fill.running
+    ? { text: `${fill.done}/${fill.total}`, stop: fill.cancel }
+    : analysing.running
+      ? { text: `BPM ${analysing.done}/${analysing.total}`, stop: analysing.cancel }
+      : null;
+
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div
-        ref={header}
-        className="grid shrink-0 border-l-2 border-transparent py-1.5 pr-6 pl-3 font-mono text-[11px] text-muted-foreground/60 select-none"
-        style={template}
-      >
-        <span className="relative">#{handle("num")}</span>
-        <span className="relative">Title{handle("title")}</span>
-        <span className="relative pl-2">Artist{handle("artist")}</span>
-        <span className="relative pl-2">Album{handle("album")}</span>
-        <span className="relative pl-2">Gain{handle("gain")}</span>
-        {fill.running && (
-          <button
-            title="Stop"
-            onClick={fill.cancel}
-            className="col-start-6 flex items-center gap-1.5 justify-self-end pr-3 text-brand hover:text-foreground"
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div
+            ref={header}
+            className="grid shrink-0 border-l-2 border-transparent py-1.5 pr-6 pl-3 font-mono text-[11px] text-muted-foreground/60 select-none"
+            style={template}
           >
-            <span className="size-1.5 animate-pulse rounded-full bg-current" />
-            {fill.done}/{fill.total}
-          </button>
-        )}
-        <span className="relative col-start-7 pr-2 text-right">
-          {handle("time", "left")}
-          Time
-        </span>
-      </div>
-      <div
-        ref={scroller}
-        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto [scrollbar-gutter:stable]"
-        onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
-      >
-        {!loading && list.length > 0 && (
-          <div style={{ height: list.length * ROW, position: "relative" }}>
-            {list.slice(start, end).map((m, k) => {
-              const i = start + k;
-              const playing = m.path === playingPath;
+            {cols.map((c) => {
+              const active = sort?.col === c.id;
+              const Arrow = sort?.dir === -1 ? ArrowDown : ArrowUp;
               return (
-                <ContextMenu key={m.path}>
-                  <ContextMenuTrigger asChild>
+                <span
+                  key={c.id}
+                  className={cn("relative min-w-0", c.id !== "num" && c.id !== "title" && "pl-2", c.align === "right" && "pr-2 text-right")}
+                  style={colStart(c)}
+                >
+                  <button
+                    onClick={() => useStore.getState().setSort(c.id)}
+                    className={cn(
+                      "inline-flex max-w-full items-center gap-1 truncate hover:text-foreground",
+                      active && "text-foreground",
+                    )}
+                  >
+                    {c.label}
+                    {active && <Arrow className="size-3 shrink-0" />}
+                  </button>
+                  {handle(c)}
+                </span>
+              );
+            })}
+            {status && (
+              <button
+                title="Stop"
+                onClick={status.stop}
+                className="flex items-center gap-1.5 justify-self-end pr-3 text-brand hover:text-foreground"
+                style={{ gridColumnStart: cols.length + (hasTime ? 0 : 1), gridRowStart: 1 }}
+              >
+                <span className="size-1.5 animate-pulse rounded-full bg-current" />
+                {status.text}
+              </button>
+            )}
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-52">
+          <ContextMenuLabel className="text-[11px] font-normal text-muted-foreground">Columns</ContextMenuLabel>
+          {COLUMNS.filter((c) => !c.fixed).map((c) => (
+            <ContextMenuCheckboxItem
+              key={c.id}
+              checked={visible.includes(c.id)}
+              onCheckedChange={() => toggle(c.id)}
+              onSelect={(e) => e.preventDefault()}
+            >
+              {c.label}
+            </ContextMenuCheckboxItem>
+          ))}
+          <ContextMenuSeparator />
+          <ContextMenuLabel className="text-[11px] font-normal text-muted-foreground">Key notation</ContextMenuLabel>
+          <ContextMenuRadioGroup
+            value={keyNotation}
+            onValueChange={(v) => useStore.getState().setKeyNotation(v as typeof keyNotation)}
+          >
+            <ContextMenuRadioItem value="musical">Musical (Am)</ContextMenuRadioItem>
+            <ContextMenuRadioItem value="camelot">Camelot (8A)</ContextMenuRadioItem>
+          </ContextMenuRadioGroup>
+          <ContextMenuSeparator />
+          <ContextMenuItem onSelect={reset}>Reset columns</ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div
+            ref={scroller}
+            className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto [scrollbar-gutter:stable]"
+            onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+          >
+            {!loading && list.length > 0 && (
+              <div style={{ height: list.length * ROW, position: "relative" }}>
+                {list.slice(start, end).map((m, k) => {
+                  const i = start + k;
+                  const playing = m.path === playingPath;
+                  const chosen = selSet.has(m.path);
+                  return (
                     <div
-                      onMouseDown={() => useStore.getState().select(i)}
+                      key={m.path}
+                      onMouseDown={(e) => {
+                        if (e.button === 0) {
+                          useStore.getState().clickRow(i, { ctrl: e.ctrlKey || e.metaKey, shift: e.shiftKey });
+                        } else if (e.button === 2 && !chosen) {
+                          useStore.getState().select(i);
+                        }
+                      }}
                       onDoubleClick={() => useStore.getState().playFromList(i)}
                       className={cn(
-                        "absolute inset-x-0 grid cursor-default items-center border-l-2 border-transparent px-3 font-mono text-[12px]",
-                        i === selected && !playing && "bg-accent/70",
+                        "absolute inset-x-0 grid cursor-default items-center border-l-2 border-transparent px-3 font-mono text-[12px] select-none",
+                        chosen && !playing && "bg-accent/70",
                         playing && "border-brand bg-brand-wash text-brand",
+                        playing && chosen && "bg-brand-muted/60",
                         !playing && "text-muted-foreground",
                       )}
                       style={{ ...template, top: i * ROW, height: ROW }}
                     >
-                      <span className="tabular-nums">
-                        {playing && isPlaying ? (
-                          <span className="inline-flex h-3 items-end gap-px">
-                            <span className="h-full w-0.5 origin-bottom animate-[eq_0.9s_ease-in-out_infinite] bg-current" />
-                            <span className="h-full w-0.5 origin-bottom animate-[eq_0.7s_ease-in-out_infinite_0.2s] bg-current" />
-                            <span className="h-full w-0.5 origin-bottom animate-[eq_1.1s_ease-in-out_infinite_0.1s] bg-current" />
+                      {cols.map((c) => {
+                        if (c.id === "num") {
+                          return (
+                            <span key="num" className="tabular-nums">
+                              {playing && isPlaying ? (
+                                <span className="inline-flex h-3 items-end gap-px">
+                                  <span className="h-full w-0.5 origin-bottom animate-[eq_0.9s_ease-in-out_infinite] bg-current" />
+                                  <span className="h-full w-0.5 origin-bottom animate-[eq_0.7s_ease-in-out_infinite_0.2s] bg-current" />
+                                  <span className="h-full w-0.5 origin-bottom animate-[eq_1.1s_ease-in-out_infinite_0.1s] bg-current" />
+                                </span>
+                              ) : (
+                                c.text(m, { ...ctx, index: i })
+                              )}
+                            </span>
+                          );
+                        }
+                        return (
+                          <span
+                            key={c.id}
+                            className={cn(
+                              "truncate pr-3 tabular-nums",
+                              c.id !== "title" && "pl-2",
+                              c.id === "title" && !playing && "text-foreground",
+                              c.align === "right" && "pr-2 text-right",
+                            )}
+                            style={colStart(c)}
+                          >
+                            {c.text(m, { ...ctx, index: i })}
                           </span>
-                        ) : (
-                          String(m.track ?? i + 1).padStart(2, "0")
-                        )}
-                      </span>
-                      <span className={cn("truncate pr-3", !playing && "text-foreground")}>{m.title}</span>
-                      <span className="truncate pr-3 pl-2">{m.artist ?? ""}</span>
-                      <span className="truncate pr-3 pl-2">{m.album ?? ""}</span>
-                      <span className="truncate pl-2 tabular-nums">{gainOf(m, rgMode)}</span>
-                      <span className="col-start-7 pr-2 text-right tabular-nums">{fmtTime(m.duration)}</span>
+                        );
+                      })}
                     </div>
-                  </ContextMenuTrigger>
-                  <ContextMenuContent>
-                    <ContextMenuItem onSelect={() => useStore.getState().playFromList(i)}>Play</ContextMenuItem>
-                    <ContextMenuItem onSelect={() => useStore.getState().openTags(m.path)}>Edit tags</ContextMenuItem>
-                    <ContextMenuSeparator />
-                    {view?.kind === "crate" && (
-                      <ContextMenuItem
-                        onSelect={async () => {
-                          await api.renumber(list.map((t) => t.path));
-                          useStore.getState().reloadList();
-                        }}
-                      >
-                        Renumber crate in this order
-                      </ContextMenuItem>
-                    )}
-                    <ContextMenuItem onSelect={saveAsPlaylist}>Save crate as playlist</ContextMenuItem>
-                    <ContextMenuSeparator />
-                    <ContextMenuItem
-                      disabled={fill.running || missing === 0}
-                      onSelect={() => fillMissing(list)}
-                    >
-                      Fill missing info online{missing ? ` (${missing})` : ""}
-                    </ContextMenuItem>
-                  </ContextMenuContent>
-                </ContextMenu>
-              );
-            })}
+                  );
+                })}
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </ContextMenuTrigger>
+        <RowMenu
+          missing={missing}
+          busy={fill.running || analysing.running}
+          onSavePlaylist={saveAsPlaylist}
+          canRenumber={view?.kind === "crate"}
+        />
+      </ContextMenu>
     </div>
+  );
+}
+
+/** Right-click menu for the selected tracks. */
+function RowMenu({
+  missing,
+  busy,
+  onSavePlaylist,
+  canRenumber,
+}: {
+  missing: number;
+  busy: boolean;
+  onSavePlaylist: () => void;
+  canRenumber: boolean;
+}) {
+  const count = useStore((s) => s.selection.length);
+  const s = useStore.getState;
+  const paths = () => s().selectedTracks().map((m) => m.path);
+  const n = count > 1 ? ` (${count})` : "";
+  return (
+    <ContextMenuContent className="w-60">
+      <ContextMenuItem
+        disabled={!count}
+        onSelect={() => {
+          const first = s().list.findIndex((m) => m.path === paths()[0]);
+          if (first >= 0) s().playFromList(first);
+        }}
+      >
+        Play
+      </ContextMenuItem>
+      <ContextMenuItem disabled={!count} onSelect={() => s().playNext(paths())}>
+        Play next{n}
+      </ContextMenuItem>
+      <ContextMenuItem disabled={!count} onSelect={() => s().addToQueue(paths())}>
+        Add to queue{n}
+      </ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuItem disabled={!count} onSelect={() => s().openTags(paths())}>
+        Edit tags{n}
+      </ContextMenuItem>
+      <ContextMenuItem disabled={!count || busy} onSelect={() => analyse(s().selectedTracks())}>
+        Analyse BPM and key{n}
+      </ContextMenuItem>
+      <ContextMenuSeparator />
+      <ContextMenuItem onSelect={() => s().selectAll()}>Select all</ContextMenuItem>
+      {canRenumber && (
+        <ContextMenuItem
+          onSelect={async () => {
+            await api.renumber(s().list.map((t) => t.path));
+            s().reloadList();
+          }}
+        >
+          Renumber crate in this order
+        </ContextMenuItem>
+      )}
+      <ContextMenuItem onSelect={onSavePlaylist}>Save crate as playlist</ContextMenuItem>
+      <ContextMenuItem disabled={busy || missing === 0} onSelect={() => fillMissing(s().list)}>
+        Fill missing info online{missing ? ` (${missing})` : ""}
+      </ContextMenuItem>
+      <ContextMenuItem disabled={busy} onSelect={() => analyse(s().list.filter((m) => !m.bpm || !m.key))}>
+        Analyse BPM and key for crate
+      </ContextMenuItem>
+    </ContextMenuContent>
   );
 }

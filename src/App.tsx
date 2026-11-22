@@ -13,6 +13,9 @@ import { CommandPalette } from "@/components/CommandPalette";
 import { TagDrawer } from "@/components/TagDrawer";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { Theater } from "@/components/Theater";
+import { QueuePanel } from "@/components/QueuePanel";
+import { SmartCrateDialog } from "@/components/SmartCrateDialog";
+import { AlbumGrid } from "@/components/AlbumGrid";
 import { startAutoCheck } from "@/lib/updater";
 
 function isTyping(e: KeyboardEvent) {
@@ -35,7 +38,12 @@ function useShortcuts() {
         s.setSettings(true);
         return;
       }
-      if (isTyping(e) || s.palette || s.settings || s.tagTarget) return;
+      if (isTyping(e) || s.palette || s.settings || s.tagTarget || s.queueOpen || s.smartEdit) return;
+      if (ctrl && e.key.toLowerCase() === "a") {
+        e.preventDefault();
+        s.selectAll();
+        return;
+      }
       if (ctrl || e.altKey) return;
 
       const { list, selected } = s;
@@ -56,13 +64,29 @@ function useShortcuts() {
           e.preventDefault();
           api.seekRelative(e.shiftKey ? 30 : 5);
           break;
-        case "ArrowDown":
+        case "ArrowDown": {
           e.preventDefault();
-          if (list.length) s.select(Math.min(list.length - 1, (selected ?? -1) + 1));
+          if (!list.length) break;
+          const i = Math.min(list.length - 1, (selected ?? -1) + 1);
+          if (e.shiftKey) s.extendTo(i);
+          else s.select(i);
           break;
-        case "ArrowUp":
+        }
+        case "ArrowUp": {
           e.preventDefault();
-          if (list.length) s.select(Math.max(0, (selected ?? 1) - 1));
+          if (!list.length) break;
+          const i = Math.max(0, (selected ?? 1) - 1);
+          if (e.shiftKey) s.extendTo(i);
+          else s.select(i);
+          break;
+        }
+        case "q":
+        case "Q":
+          s.setQueueOpen(true);
+          break;
+        case "s":
+        case "S":
+          s.toggleShuffle();
           break;
         case "Home":
           if (list.length) s.select(0);
@@ -120,8 +144,12 @@ function useShortcuts() {
           break;
         case "t":
         case "T": {
-          const p = (selected != null && list[selected]?.path) || s.track?.meta.path;
-          if (p) s.openTags(p);
+          const sel = s.selection;
+          if (sel.length > 1) s.openTags(sel);
+          else {
+            const p = (selected != null && list[selected]?.path) || s.track?.meta.path;
+            if (p) s.openTags(p);
+          }
           break;
         }
       }
@@ -135,6 +163,7 @@ export default function App() {
   const init = useStore((s) => s.init);
   const hasRoots = useStore((s) => (s.config ? s.config.roots.length > 0 : true));
   const theater = useStore((s) => s.theater);
+  const layout = useStore((s) => s.layout);
   const fullscreen = useStore((s) => s.fullscreen);
   const autoUpdate = useStore((s) => s.config?.autoUpdate);
   useEffect(() => {
@@ -162,7 +191,7 @@ export default function App() {
             <main className="flex min-w-0 flex-1 flex-col">
               <NowPlaying />
               {hasRoots ? (
-                <TrackList />
+                layout === "albums" ? <AlbumGrid /> : <TrackList />
               ) : (
                 <div className="flex flex-1 items-center justify-center">
                   <button
@@ -182,6 +211,8 @@ export default function App() {
       )}
       <CommandPalette />
       <TagDrawer />
+      <QueuePanel />
+      <SmartCrateDialog />
       <SettingsDialog />
     </TooltipProvider>
   );

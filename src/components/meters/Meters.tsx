@@ -169,3 +169,80 @@ export function fmtDb(v: number | null) {
   if (v == null || v <= -69.9) return "−∞";
   return (v < 0 ? "−" : "") + Math.abs(v).toFixed(1);
 }
+
+/** Scrolling frequency-over-time view; history lives in an offscreen canvas. */
+export function Spectrogram({ className }: { className?: string }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const meters = useMeters();
+  const hist = useRef<HTMLCanvasElement | null>(null);
+  const lastAt = useRef(0);
+  useMeterCanvas(ref, (ctx, w, h, el) => {
+    const W = Math.max(1, Math.round(w));
+    const H = Math.max(1, Math.round(h));
+    let off = hist.current;
+    if (!off || off.width !== W || off.height !== H) {
+      off = document.createElement("canvas");
+      off.width = W;
+      off.height = H;
+      hist.current = off;
+    }
+    const o = off.getContext("2d");
+    const m = meters.current.current;
+    if (o && m && meters.current.at !== lastAt.current) {
+      lastAt.current = meters.current.at;
+      const step = 2;
+      o.globalCompositeOperation = "copy";
+      o.drawImage(off, -step, 0);
+      o.globalCompositeOperation = "source-over";
+      const c = colors(el);
+      const n = m.spectrum.length;
+      const bh = H / n;
+      o.fillStyle = c.fg;
+      for (let b = 0; b < n; b++) {
+        const v = m.spectrum[b];
+        if (v < 0.04) continue;
+        o.globalAlpha = Math.min(1, v * v * 1.5);
+        o.fillRect(W - step, H - (b + 1) * bh, step, Math.ceil(bh));
+      }
+      o.globalAlpha = 1;
+    }
+    ctx.drawImage(off, 0, 0, w, h);
+  });
+  return <canvas ref={ref} className={cn("block", className)} />;
+}
+
+/** Stereo field (goniometer): mono plots vertical, wide stereo spreads out. */
+export function Vectorscope({ className }: { className?: string }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const meters = useMeters();
+  useMeterCanvas(ref, (ctx, w, h, el) => {
+    const c = colors(el);
+    const cx = w / 2;
+    const cy = h / 2;
+    const r = Math.min(w, h) / 2 - 2;
+    ctx.strokeStyle = c.grid;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cx - r * 0.7071, cy - r * 0.7071);
+    ctx.lineTo(cx + r * 0.7071, cy + r * 0.7071);
+    ctx.moveTo(cx + r * 0.7071, cy - r * 0.7071);
+    ctx.lineTo(cx - r * 0.7071, cy + r * 0.7071);
+    ctx.moveTo(cx, cy - r);
+    ctx.lineTo(cx, cy + r);
+    ctx.stroke();
+    const s = meters.current.current?.stereo;
+    if (!s?.length) return;
+    ctx.fillStyle = c.fg;
+    ctx.globalAlpha = 0.55;
+    const k = r * 0.7071;
+    for (let i = 0; i + 1 < s.length; i += 2) {
+      const l = s[i];
+      const rr = s[i + 1];
+      const x = cx + (rr - l) * k;
+      const y = cy - (l + rr) * k;
+      ctx.fillRect(x, y, 1.5, 1.5);
+    }
+    ctx.globalAlpha = 1;
+  });
+  return <canvas ref={ref} className={cn("block", className)} />;
+}

@@ -13,13 +13,67 @@ import {
 import { accentFromImage } from "./accent";
 import { applyTheme, resolveTheme } from "./theme";
 import { best } from "./itunes";
+import { sortTracks, type ColId, type SortState } from "./columns";
+import type { KeyNotation } from "./keys";
+
+function loadJSON<T>(key: string, fallback: T): T {
+  try {
+    const v = localStorage.getItem(key);
+    return v == null ? fallback : (JSON.parse(v) as T);
+  } catch {
+    return fallback;
+  }
+}
+function saveJSON(key: string, v: unknown) {
+  try {
+    localStorage.setItem(key, JSON.stringify(v));
+  } catch {
+    /* ignore */
+  }
+}
+
+function shuffled<T>(a: T[]): T[] {
+  const out = a.slice();
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+/** Applies the current sort to a folder-ordered list. */
+function arrange(base: TrackMeta[]): TrackMeta[] {
+  const s = useStore.getState();
+  return sortTracks(base, s.sort, { rgMode: s.config?.rgMode ?? "track", keyNotation: s.keyNotation });
+}
+
+/** Re-sorts the visible list, keeping the focused row on the same track. */
+function rearrange() {
+  const s = useStore.getState();
+  const focusPath = s.selected != null ? s.list[s.selected]?.path : null;
+  const list = arrange(s.baseList);
+  const focus = focusPath ? list.findIndex((m) => m.path === focusPath) : -1;
+  useStore.setState({ list, selected: focus >= 0 ? focus : s.selected });
+}
+
+/** Stable empty array for selector fallbacks (a fresh [] would re-render forever). */
+export const EMPTY: never[] = [];
 
 export type View =
   | { kind: "crate"; path: string; name: string }
-  | { kind: "history"; days: number; name: string };
+  | { kind: "history"; days: number; name: string }
+  | { kind: "smart"; id: string; name: string };
 
 export const viewKey = (v: View | null) =>
-  !v ? "" : v.kind === "crate" ? `crate:${v.path}` : `history:${v.days}`;
+  !v ? "" : v.kind === "crate" ? `crate:${v.path}` : v.kind === "smart" ? `smart:${v.id}` : `history:${v.days}`;
+
+/** Loads the tracks of any view kind. */
+async function fetchView(v: View): Promise<TrackMeta[]> {
+  if (v.kind === "crate") return api.tracks(v.path);
+  if (v.kind === "history") return api.historyTracks(v.days);
+  const def = useStore.getState().config?.smartCrates?.find((c) => c.id === v.id);
+  return def ? api.smartTracks(def) : [];
+}
 
 interface Store {
   ready: boolean;
@@ -32,14 +86,27 @@ interface Store {
 
   crates: CrateNode[];
   view: View | null;
+  /** Tracks in folder / playlist order. */
+  baseList: TrackMeta[];
+  /** Tracks as displayed (sorted). Playback order follows this. */
   list: TrackMeta[];
   listLoading: boolean;
+  /** Keyboard focus row. */
   selected: number | null;
+  /** Selected track paths (multi-select). */
+  selection: string[];
+  anchor: number | null;
+  sort: SortState | null;
+  keyNotation: KeyNotation;
   queueKey: string | null;
 
   palette: boolean;
   settings: boolean;
-  tagTarget: string | null;
+  /** Tracks open in the tag drawer (several = bulk edit). */
+  tagTarget: string[] | null;
+  /** Smart crate open in the editor (new or existing). */
+  smartEdit: import("./api").SmartCrate | null;
+  setSmartEdit: (c: import("./api").SmartCrate | null) => void;
   theater: boolean;
   toggleTheater: (v?: boolean) => void;
   fullscreen: boolean;
@@ -52,9 +119,29 @@ interface Store {
   reloadList: () => Promise<void>;
   playFromList: (i: number) => void;
   select: (i: number | null) => void;
+  clickRow: (i: number, mods: { ctrl?: boolean; shift?: boolean }) => void;
+  extendTo: (i: number) => void;
+  selectAll: () => void;
+  selectedTracks: () => TrackMeta[];
+  setSort: (col: ColId) => void;
+  /** Queue position after which "Add to queue" inserts (user-queued block end). */
+  userQueueEnd: number | null;
+  shuffle: boolean;
+  /** Queue order before shuffling, restored when shuffle is turned off. */
+  unshuffled: string[] | null;
+  queueOpen: boolean;
+  /** Track list or album grid. */
+  layout: "list" | "albums";
+  setLayout: (l: "list" | "albums") => void;
+  playNext: (paths: string[]) => void;
+  addToQueue: (paths: string[]) => void;
+  setQueueOrder: (paths: string[], index: number) => void;
+  toggleShuffle: () => void;
+  setQueueOpen: (v: boolean) => void;
+  setKeyNotation: (n: KeyNotation) => void;
   setPalette: (v: boolean) => void;
   setSettings: (v: boolean) => void;
-  openTags: (path: string | null) => void;
+  openTags: (paths: string | string[] | null) => void;
 
   toggleViz: () => void;
   cycleRepeat: () => void;
@@ -163,9 +250,25 @@ export const useStore = create<Store>((set, get) => ({
 
   crates: [],
   view: null,
+  baseList: [],
   list: [],
   listLoading: false,
   selected: null,
+  selection: [],
+  anchor: null,
+  sort: loadJSON<SortState | null>("mono.sort", null),
+  userQueueEnd: null,
+  shuffle: loadJSON<boolean>("mono.shuffle", false),
+  unshuffled: null,
+  queueOpen: false,
+  layout: loadJSON<"list" | "albums">("mono.layout.mode", "list"),
+  setLayout: (l) => {
+    saveJSON("mono.layout.mode", l);
+    set({ layout: l });
+  },
+  smartEdit: null,
+  setSmartEdit: (c) => set({ smartEdit: c }),
+  keyNotation: loadJSON<KeyNotation>("mono.keyNotation", "musical"),
   queueKey: null,
 
   palette: false,
@@ -205,7 +308,10 @@ export const useStore = create<Store>((set, get) => ({
         sendDiscordArt(t.meta);
       }
     });
-    await on.state((s) => set({ player: s }));
+    await on.state((s) => {
+      const end = get().userQueueEnd;
+      set({ player: s, userQueueEnd: end != null && s.index != null && s.index + 1 >= end ? null : end });
+    });
     await on.track((t) => {
       const prev = get().track;
       set({ track: t, duration: t.meta.duration });
@@ -226,10 +332,24 @@ export const useStore = create<Store>((set, get) => ({
     await on.position((p) => set({ pos: p.pos, duration: p.duration || get().duration }));
 
     if (library) {
+      // Files opened while Mono was already running. Explorer launches one
+      // process per file when several are opened together, so arrivals close
+      // together are queued rather than each replacing the last.
+      let lastOpen = 0;
+      await on.openFiles((paths) => {
+        const now = performance.now();
+        if (now - lastOpen < 1500 && get().player.queue.length) get().addToQueue(paths);
+        else {
+          set({ queueKey: null, userQueueEnd: null, unshuffled: null });
+          api.playQueue(paths, 0);
+        }
+        lastOpen = now;
+      });
       await on.libraryChanged((dirs) => {
         get().refreshCrates();
         const v = get().view;
-        if (v?.kind === "crate" && dirs.some((d) => d === v.path || d.startsWith(v.path) || v.path.startsWith(d))) {
+        if (v?.kind === "smart") get().reloadList();
+        else if (v?.kind === "crate" && dirs.some((d) => d === v.path || d.startsWith(v.path) || v.path.startsWith(d))) {
           get().reloadList();
         }
       });
@@ -246,7 +366,9 @@ export const useStore = create<Store>((set, get) => ({
       const norm = (p: string) => p.replace(/[\\/]+$/, "").toLowerCase();
       const lastPath = last?.kind === "crate" ? norm(last.path) : null;
       const stillWatched =
-        last?.kind === "history" || (lastPath != null && roots.some((r) => lastPath.startsWith(norm(r))));
+        last?.kind === "history" ||
+        (last?.kind === "smart" && !!get().config?.smartCrates?.some((c) => c.id === last!.id)) ||
+        (lastPath != null && roots.some((r) => lastPath.startsWith(norm(r))));
       if (last && stillWatched) {
         await get().openView(last);
       } else if (get().crates[0]) {
@@ -274,19 +396,37 @@ export const useStore = create<Store>((set, get) => ({
     } catch {
       /* ignore */
     }
-    const list = v.kind === "crate" ? await api.tracks(v.path) : await api.historyTracks(v.days);
+    const base = await fetchView(v);
     if (viewKey(get().view) !== viewKey(v)) return;
+    const list = arrange(base);
     const playing = get().track?.meta.path;
     const sel = playing ? list.findIndex((m) => m.path === playing) : -1;
-    set({ list, listLoading: false, selected: sel >= 0 ? sel : list.length ? 0 : null });
+    const focus = sel >= 0 ? sel : list.length ? 0 : null;
+    set({
+      baseList: base,
+      list,
+      listLoading: false,
+      selected: focus,
+      anchor: focus,
+      selection: focus != null ? [list[focus].path] : [],
+    });
   },
 
   reloadList: async () => {
     const v = get().view;
     if (!v) return;
-    const list = v.kind === "crate" ? await api.tracks(v.path) : await api.historyTracks(v.days);
+    const base = await fetchView(v);
     if (viewKey(get().view) !== viewKey(v)) return;
-    set({ list });
+    const list = arrange(base);
+    const focusPath = get().selected != null ? get().list[get().selected!]?.path : null;
+    const focus = focusPath ? list.findIndex((m) => m.path === focusPath) : -1;
+    const keep = new Set(list.map((m) => m.path));
+    set({
+      baseList: base,
+      list,
+      selected: focus >= 0 ? focus : get().selected,
+      selection: get().selection.filter((p) => keep.has(p)),
+    });
     // Keep the engine's queue aligned when the playing crate changed on disk.
     if (get().queueKey === viewKey(v)) {
       const cur = get().track?.meta.path;
@@ -296,19 +436,119 @@ export const useStore = create<Store>((set, get) => ({
   },
 
   playFromList: (i) => {
-    const { list, view } = get();
+    const { list, view, shuffle } = get();
     if (!list[i]) return;
-    set({ queueKey: viewKey(view), selected: i });
-    api.playQueue(
-      list.map((m) => m.path),
-      i,
-    );
+    const paths = list.map((m) => m.path);
+    set({ queueKey: viewKey(view), selected: i, userQueueEnd: null });
+    if (shuffle) {
+      const rest = shuffled(paths.filter((_, k) => k !== i));
+      set({ unshuffled: paths });
+      api.playQueue([paths[i], ...rest], 0);
+    } else {
+      set({ unshuffled: null });
+      api.playQueue(paths, i);
+    }
   },
 
-  select: (i) => set({ selected: i }),
+  playNext: (paths) => {
+    const { player } = get();
+    if (!paths.length) return;
+    if (player.index == null || !player.queue.length) return void api.playQueue(paths, 0);
+    const at = player.index + 1;
+    const q = [...player.queue.slice(0, at), ...paths, ...player.queue.slice(at)];
+    const end = get().userQueueEnd;
+    set({ userQueueEnd: Math.max(end ?? at, at) + paths.length });
+    get().setQueueOrder(q, player.index);
+  },
+
+  addToQueue: (paths) => {
+    const { player, userQueueEnd } = get();
+    if (!paths.length) return;
+    if (player.index == null || !player.queue.length) return void api.playQueue(paths, 0);
+    const at = Math.max(userQueueEnd ?? 0, player.index + 1);
+    const q = [...player.queue.slice(0, at), ...paths, ...player.queue.slice(at)];
+    set({ userQueueEnd: at + paths.length });
+    get().setQueueOrder(q, player.index);
+  },
+
+  setQueueOrder: (paths, index) => {
+    // Optimistic so the queue panel doesn't flicker before the engine echoes.
+    set({ player: { ...get().player, queue: paths, index } });
+    api.setQueue(paths, index);
+  },
+
+  toggleShuffle: () => {
+    const { shuffle, player, unshuffled } = get();
+    const on = !shuffle;
+    saveJSON("mono.shuffle", on);
+    set({ shuffle: on });
+    if (player.index == null || !player.queue.length) return;
+    const cur = player.queue[player.index];
+    if (on) {
+      const upcoming = shuffled(player.queue.slice(player.index + 1));
+      set({ unshuffled: player.queue, userQueueEnd: null });
+      get().setQueueOrder([...player.queue.slice(0, player.index + 1), ...upcoming], player.index);
+    } else if (unshuffled) {
+      const at = unshuffled.indexOf(cur);
+      set({ unshuffled: null, userQueueEnd: null });
+      if (at >= 0) get().setQueueOrder(unshuffled, at);
+    }
+  },
+
+  setQueueOpen: (v) => set({ queueOpen: v }),
+
+  select: (i) => {
+    const m = i != null ? get().list[i] : null;
+    set({ selected: i, anchor: i, selection: m ? [m.path] : [] });
+  },
+  clickRow: (i, { ctrl, shift }) => {
+    const { list, selection, anchor } = get();
+    const m = list[i];
+    if (!m) return;
+    if (shift && anchor != null) {
+      const [a, b] = anchor < i ? [anchor, i] : [i, anchor];
+      const range = list.slice(a, b + 1).map((t) => t.path);
+      set({ selected: i, selection: ctrl ? [...new Set([...selection, ...range])] : range });
+    } else if (ctrl) {
+      const has = selection.includes(m.path);
+      set({
+        selected: i,
+        anchor: i,
+        selection: has ? selection.filter((p) => p !== m.path) : [...selection, m.path],
+      });
+    } else {
+      set({ selected: i, anchor: i, selection: [m.path] });
+    }
+  },
+  extendTo: (i) => {
+    const { list, anchor } = get();
+    if (!list[i]) return;
+    const a = anchor ?? i;
+    const [lo, hi] = a < i ? [a, i] : [i, a];
+    set({ selected: i, anchor: a, selection: list.slice(lo, hi + 1).map((t) => t.path) });
+  },
+  selectAll: () => set({ selection: get().list.map((m) => m.path), anchor: 0 }),
+  selectedTracks: () => {
+    const sel = new Set(get().selection);
+    return get().list.filter((m) => sel.has(m.path));
+  },
+  setSort: (col) => {
+    const cur = get().sort;
+    const next: SortState | null =
+      !cur || cur.col !== col ? { col, dir: 1 } : cur.dir === 1 ? { col, dir: -1 } : null;
+    saveJSON("mono.sort", next);
+    set({ sort: next });
+    rearrange();
+  },
+  setKeyNotation: (n) => {
+    saveJSON("mono.keyNotation", n);
+    set({ keyNotation: n });
+    if (get().sort?.col === "key") rearrange();
+  },
   setPalette: (v) => set({ palette: v }),
   setSettings: (v) => set({ settings: v }),
-  openTags: (path) => set({ tagTarget: path }),
+  openTags: (paths) =>
+    set({ tagTarget: paths == null ? null : Array.isArray(paths) ? (paths.length ? paths : null) : [paths] }),
 
   toggleViz: () => {
     const c = get().config;

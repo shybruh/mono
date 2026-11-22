@@ -28,6 +28,15 @@ pub struct Config {
     pub lyrics_online: bool,
     /// Look up missing album / cover art on iTunes for the playing track.
     pub meta_online: bool,
+    /// Smart crate definitions (owned by the UI; evaluated by `smart_tracks`).
+    pub smart_crates: serde_json::Value,
+    pub eq: crate::audio::dsp::EqSettings,
+    /// Headphone crossfeed amount, 0 (off) to 1.
+    pub crossfeed: f32,
+    /// Crossfade between tracks in seconds; 0 = gapless.
+    pub crossfade: f32,
+    /// Reopen the last queue / position and resume long tracks.
+    pub resume: bool,
     /// Check GitHub Releases for signed updates in the background.
     pub auto_update: bool,
     /// "waveform" or "bar".
@@ -55,6 +64,11 @@ impl Default for Config {
             lyrics_online: false,
             meta_online: false,
             auto_update: true,
+            resume: true,
+            smart_crates: serde_json::Value::Array(Vec::new()),
+            eq: Default::default(),
+            crossfeed: 0.0,
+            crossfade: 0.0,
             seek_style: "waveform".into(),
         }
     }

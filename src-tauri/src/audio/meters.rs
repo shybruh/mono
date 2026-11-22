@@ -18,6 +18,7 @@ use super::Shared;
 const FFT: usize = 4096;
 const BANDS: usize = 96;
 const SCOPE: usize = 256;
+const STEREO: usize = 512;
 const FRAME: Duration = Duration::from_micros(16_667);
 
 #[derive(Serialize, Clone)]
@@ -27,6 +28,8 @@ pub struct Meters {
     pub spectrum: Vec<f32>,
     /// Mono scope trace, -1..1.
     pub scope: Vec<f32>,
+    /// Interleaved L, R samples for the vectorscope (most recent window).
+    pub stereo: Vec<f32>,
     pub peak_l: f32,
     pub peak_r: f32,
     pub lufs_m: f32,
@@ -156,6 +159,8 @@ fn run(app: AppHandle, shared: Arc<Shared>, rx: Receiver<(Consumer<f32>, u32)>) 
         .collect();
     let mut history: VecDeque<f32> = VecDeque::from(vec![0.0; FFT]);
     let mut scope_hist: VecDeque<f32> = VecDeque::from(vec![0.0; SCOPE * 4]);
+    // Recent (L, R) pairs for the vectorscope.
+    let mut stereo_hist: VecDeque<(f32, f32)> = VecDeque::from(vec![(0.0, 0.0); STEREO]);
     let mut fft_in = vec![0.0f32; FFT];
     let mut bands = vec![0.0f32; BANDS];
     let mut loud = Loudness::new(sr);
@@ -208,6 +213,8 @@ fn run(app: AppHandle, shared: Arc<Shared>, rx: Receiver<(Consumer<f32>, u32)>) 
                     history.push_back(m);
                     scope_hist.pop_front();
                     scope_hist.push_back(m);
+                    stereo_hist.pop_front();
+                    stereo_hist.push_back((l, r));
                     loud.push(l, r);
                 }
                 c.commit_all();
@@ -220,6 +227,8 @@ fn run(app: AppHandle, shared: Arc<Shared>, rx: Receiver<(Consumer<f32>, u32)>) 
                 history.push_back(0.0);
                 scope_hist.pop_front();
                 scope_hist.push_back(0.0);
+                stereo_hist.pop_front();
+                stereo_hist.push_back((0.0, 0.0));
                 loud.push(0.0, 0.0);
             }
         }
@@ -264,6 +273,7 @@ fn run(app: AppHandle, shared: Arc<Shared>, rx: Receiver<(Consumer<f32>, u32)>) 
             Meters {
                 spectrum: bands.clone(),
                 scope,
+                stereo: stereo_hist.iter().flat_map(|&(l, r)| [l, r]).collect(),
                 peak_l: to_db(peak[0]),
                 peak_r: to_db(peak[1]),
                 lufs_m: loud.lufs(4),
