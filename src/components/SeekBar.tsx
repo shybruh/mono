@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { useStore } from "@/lib/store";
-import { useCanvasLoop } from "@/hooks/useMeters";
+import { useCanvas } from "@/hooks/useMeters";
 import { resolveColor } from "@/lib/accent";
 import { cn, fmtTime } from "@/lib/utils";
 
@@ -14,7 +14,14 @@ const BAR = 3;
  */
 export function SeekBar() {
   const track = useStore((s) => s.track);
-  const pos = useStore((s) => s.pos);
+  // Re-render only when the playhead moves a whole pixel (or a second for the
+  // time label on long files), not on every ~20 Hz position event.
+  const widthRef = useRef(1000);
+  const pos = useStore((s) => {
+    if (s.duration <= 0) return s.pos;
+    const step = Math.min(1, s.duration / Math.max(200, widthRef.current));
+    return Math.floor(s.pos / step) * step;
+  });
   const duration = useStore((s) => s.duration);
   const loopA = useStore((s) => s.player.loopA);
   const loopB = useStore((s) => s.player.loopB);
@@ -55,7 +62,8 @@ export function SeekBar() {
   const shownPos = drag != null ? drag * duration : pos;
   const played = duration > 0 ? Math.min(1, shownPos / duration) : 0;
 
-  useCanvasLoop(canvas, (ctx, w, h, el) => {
+  useCanvas(canvas, (ctx, w, h, el) => {
+    widthRef.current = w;
     const parent = el.parentElement!;
     const cPlayed = resolveColor(parent, "var(--brand)");
     const cPlayedHover = resolveColor(parent, "color-mix(in oklch, var(--brand) 65%, var(--background))");
@@ -139,7 +147,9 @@ export function SeekBar() {
       ctx.fillRect(Math.round(hx), 0, 1, h);
       ctx.globalAlpha = 1;
     }
-  });
+    // Keep animating only while the envelope sweep is in progress.
+    return grow.current.p < 1;
+  }, [pos, duration, hoverX, drag, peaks, loopA, loopB, wave]);
 
   const tipX = drag != null ? drag * (zone.current?.clientWidth ?? 0) : hoverX;
   const tipTime = tipX != null && zone.current ? (tipX / zone.current.clientWidth) * duration : null;

@@ -22,7 +22,7 @@ function activeLine(lyrics: Lyrics, t: number): number {
 }
 
 function LyricsPane({ lyrics, offset }: { lyrics: Lyrics; offset: number }) {
-  const pos = useStore((s) => s.pos);
+  const pos = useStore((s) => Math.round(s.pos * 10) / 10);
   const scroller = useRef<HTMLDivElement>(null);
   const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
   const userScrollAt = useRef(0);
@@ -156,7 +156,7 @@ const ctl =
 
 /** Thin status line for fullscreen: elapsed · bar · total, click to seek. */
 function MiniSeek() {
-  const pos = useStore((s) => s.pos);
+  const pos = useStore((s) => Math.floor(s.pos * 2) / 2);
   const duration = useStore((s) => s.duration);
   const bar = useRef<HTMLDivElement>(null);
   const f = duration > 0 ? Math.min(1, pos / duration) : 0;

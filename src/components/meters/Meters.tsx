@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react";
-import { useCanvasLoop, useMeters } from "@/hooks/useMeters";
+import { useMeterCanvas, useMeters } from "@/hooks/useMeters";
 import { resolveColor } from "@/lib/accent";
 import { cn } from "@/lib/utils";
 
@@ -27,7 +27,7 @@ function colors(el: Element): Palette {
 export function Spectrum({ className, grid = false }: { className?: string; grid?: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const meters = useMeters();
-  useCanvasLoop(ref, (ctx, w, h, el) => {
+  useMeterCanvas(ref, (ctx, w, h, el) => {
     const c = colors(el);
     if (grid) {
       ctx.fillStyle = c.grid;
@@ -71,7 +71,7 @@ export function Spectrum({ className, grid = false }: { className?: string; grid
 export function Scope({ className }: { className?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const meters = useMeters();
-  useCanvasLoop(ref, (ctx, w, h, el) => {
+  useMeterCanvas(ref, (ctx, w, h, el) => {
     const c = colors(el);
     ctx.fillStyle = c.grid;
     ctx.fillRect(0, Math.round(h / 2), w, 1);
@@ -106,7 +106,7 @@ export function PeakMeter({ className, vertical = false }: { className?: string;
   const ref = useRef<HTMLCanvasElement>(null);
   const meters = useMeters();
   const hold = useRef({ l: -96, r: -96, tl: 0, tr: 0 });
-  useCanvasLoop(ref, (ctx, w, h, el) => {
+  useMeterCanvas(ref, (ctx, w, h, el) => {
     const c = colors(el);
     const m = meters.current.current;
     const now = performance.now();

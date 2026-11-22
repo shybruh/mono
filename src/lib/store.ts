@@ -214,13 +214,21 @@ export const useStore = create<Store>((set, get) => ({
         }
       });
       await get().refreshCrates();
-      const last = localStorage.getItem("mono.view");
-      if (last) {
-        try {
-          await get().openView(JSON.parse(last));
-        } catch {
-          /* stale */
-        }
+      // Reopen the last view, unless it points into a folder that is no
+      // longer watched (removed in Settings, or the drive changed).
+      let last: View | null = null;
+      try {
+        last = JSON.parse(localStorage.getItem("mono.view") ?? "null");
+      } catch {
+        last = null;
+      }
+      const roots = get().config?.roots ?? [];
+      const norm = (p: string) => p.replace(/[\\/]+$/, "").toLowerCase();
+      const lastPath = last?.kind === "crate" ? norm(last.path) : null;
+      const stillWatched =
+        last?.kind === "history" || (lastPath != null && roots.some((r) => lastPath.startsWith(norm(r))));
+      if (last && stillWatched) {
+        await get().openView(last);
       } else if (get().crates[0]) {
         const c = get().crates[0];
         await get().openView({ kind: "crate", path: c.path, name: c.name });

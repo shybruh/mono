@@ -5,6 +5,30 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-22
+
+Mono is now about as light on your processor as the classic native players, and the project has a proper front page.
+
+### Performance
+- **Up to 90× less CPU when idle and 7× less while playing.** On a Ryzen 7 5700X3D, idle CPU dropped from 1.8 % to 0.02 % and playback from 2.1 % to 0.28 %, level with AIMP (0.23 %) and VLC (0.24 %). Memory while playing fell from 211 MB to 141 MB.
+- The waveform, seek bar, spectrum, scope and peak meters now redraw only when something on screen changes, instead of 60 times a second.
+- The meter analysis goes quiet once the meters have fallen to silence.
+- The seek bar repaints only when the playhead moves a whole pixel; the micro-deck, lyrics and fullscreen seek line update in coarser steps, and the player sends its position 20 times a second instead of 30.
+- The audio thread wakes less often while paused or when its buffer is full.
+- The animated "now playing" bars no longer force a page re-layout on every frame.
+
+### Added
+- **Open with Mono**: audio files passed to Mono (from *Open with*, dragging onto the app, or the command line) start playing straight away.
+- **Benchmark script** (`scripts/bench.ps1`): compares launch time, memory, CPU and size on disk against AIMP, VLC and Spotify if they're installed. Results for this release are in `docs/bench-results.json`.
+
+### Fixed
+- Mono kept reopening a folder at launch after it had been removed from the watched folders. It now opens the first watched folder instead.
+
+### Documentation
+- New README for listeners: what Mono does, screenshots, a benchmark comparison and keyboard shortcuts. Build, release and project notes moved to `docs/DEVELOPMENT.md`.
+
+## [0.2.0] - 2026-11-22
+
 ### Changed
 - The waveform is now the seek bar itself: an always-visible, symmetrical amplitude envelope (48 px) replaces the thin bar and hover pop-out. Click or drag anywhere on it to scrub; hovering previews the jump and shows the target time. On track change the bars morph from the previous envelope to the new one in a left-to-right sweep.
 - **App-wide themes** replace the deck-only skins: Zinc, Paper (light), Phosphor, Amber and Custom. Every UI colour is derived from three base colours (background, text, accent), so a theme applies consistently to the main window, dialogs, meters and the micro-deck. Theme changes and cover-accent changes cross-fade.

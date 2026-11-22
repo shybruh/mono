@@ -160,6 +160,10 @@ fn run(app: AppHandle, shared: Arc<Shared>, rx: Receiver<(Consumer<f32>, u32)>) 
     let mut bands = vec![0.0f32; BANDS];
     let mut loud = Loudness::new(sr);
     let mut peak = [0.0f32; 2];
+    // Frames since audio last arrived; once the meters have decayed to the
+    // floor the thread stops emitting so an idle window costs nothing.
+    let mut quiet_ticks: u32 = 0;
+    const QUIET_LIMIT: u32 = 180; // ~3 s of decay at 60 Hz
 
     loop {
         if let Ok((c, s)) = rx.try_recv() {
@@ -183,6 +187,14 @@ fn run(app: AppHandle, shared: Arc<Shared>, rx: Receiver<(Consumer<f32>, u32)>) 
         let tick = Instant::now();
 
         let n = cons.slots() & !1;
+        if n > 0 {
+            quiet_ticks = 0;
+        } else if quiet_ticks >= QUIET_LIMIT {
+            std::thread::sleep(Duration::from_millis(50));
+            continue;
+        } else {
+            quiet_ticks += 1;
+        }
         let mut blk_peak = [0.0f32; 2];
         if n > 0 {
             if let Ok(c) = cons.read_chunk(n) {

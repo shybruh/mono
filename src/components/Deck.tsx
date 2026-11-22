@@ -42,7 +42,7 @@ function PeakReadout() {
 }
 
 function Progress() {
-  const pos = useStore((s) => s.pos);
+  const pos = useStore((s) => Math.floor(s.pos * 2) / 2);
   const duration = useStore((s) => s.duration);
   const ref = useRef<HTMLDivElement>(null);
   const f = duration > 0 ? Math.min(1, pos / duration) : 0;
@@ -68,7 +68,7 @@ export function Deck() {
   const track = useStore((s) => s.track);
   const cover = useStore((s) => s.cover);
   const playing = useStore((s) => s.player.playing);
-  const pos = useStore((s) => s.pos);
+  const pos = useStore((s) => Math.floor(s.pos));
   const duration = useStore((s) => s.duration);
   const [pinned, setPinned] = useState(true);
 

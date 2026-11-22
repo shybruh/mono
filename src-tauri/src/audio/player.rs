@@ -34,7 +34,7 @@ use crate::meta::{replaygain_linear, TrackMeta};
 use crate::AppState;
 
 const PREBUFFER_SECS: f64 = 6.0;
-const EMIT_EVERY: Duration = Duration::from_millis(33);
+const EMIT_EVERY: Duration = Duration::from_millis(50);
 
 struct Loaded {
     src: Source,
@@ -205,8 +205,16 @@ impl Engine {
 
     fn run(&mut self) {
         loop {
-            let busy = self.wants_audio();
-            let wait = if busy { Duration::from_millis(2) } else { Duration::from_millis(15) };
+            // Commands wake the thread immediately; these are only fallbacks.
+            // Refilling: short naps. Playing with a full buffer: often enough
+            // for ~30 Hz position updates. Paused / stopped: rarely.
+            let wait = if self.wants_audio() {
+                Duration::from_millis(4)
+            } else if self.playing {
+                Duration::from_millis(10)
+            } else {
+                Duration::from_millis(60)
+            };
             match self.rx.recv_timeout(wait) {
                 Ok(cmd) => {
                     if !self.handle(cmd) {

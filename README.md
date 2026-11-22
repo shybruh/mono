@@ -1,110 +1,117 @@
-# mono
+<h1 align="center">mono</h1>
 
-A lightweight, directory-native audio player for Windows, macOS and Linux.
-Rust audio engine, Tauri 2 shell, React + shadcn/ui interface.
+<p align="center">
+  A fast, quiet music player for the files you already have.<br>
+  Point it at your folders and press play.
+</p>
 
-- Gapless playback with pre-buffered next track
-- Pop-out waveform seek bar
-- ReplayGain (track / album, pre-amp, clip protection)
-- A–B loop and independent tempo / pitch
-- Live spec readout: bitrate, sample rate, bit depth, channels, format
-- Folders and `.m3u8` files as crates — no library import
-- Command palette (`Ctrl+K` or `/`)
-- Inline tag and cover-art editing
-- Always-on-top micro-deck with skins
-- Spectrum, scope, peak and LUFS visualiser
-- Optional listening history and Discord Rich Presence
+<p align="center">
+  <a href="https://github.com/shybruh/mono/releases/latest"><b>Download</b></a> ·
+  <a href="#what-it-does">What it does</a> ·
+  <a href="#how-light-is-it">How light is it?</a> ·
+  <a href="#shortcuts">Shortcuts</a>
+</p>
 
-## Building
+<p align="center">
+  <img src="docs/screenshots/theater.png" alt="Mono in theater mode, showing large cover art" width="820">
+</p>
 
-Requirements:
+---
 
-- [Rust](https://rustup.rs) (stable)
-- [Node.js](https://nodejs.org) 20+ and [pnpm](https://pnpm.io)
-- A C++ compiler (MSVC Build Tools on Windows, Xcode CLT on macOS, `g++` on Linux) for the bundled time-stretch library
-- The [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your platform
+## What it does
 
-```sh
-pnpm install
-pnpm tauri dev      # run in development
-pnpm tauri build    # produce an installer in src-tauri/target/release/bundle
-```
+### Your folders are your library
 
-## Releasing
+No importing, no scanning screens, no database to babysit. Add a folder and its sub-folders and playlists show up as **crates** straight away. Rename, move or add files and Mono notices on its own.
 
-Releases are built by GitHub Actions ([`.github/workflows/release.yml`](.github/workflows/release.yml)) and delivered to installed copies by the built-in updater.
+Files without tags still look right: Mono reads the artist and title from names like `Artist - Title.mp3`, and can fetch missing album info and cover art for you.
 
-1. Move the `[Unreleased]` notes in `CHANGELOG.md` under a new `## [x.y.z] - date` heading. That section becomes the release notes.
-2. Tag and push:
+<img src="docs/screenshots/main.png" alt="Main window with crates, the now-playing header and the track list" width="820">
 
-   ```sh
-   git tag v0.2.0
-   git push origin v0.2.0
-   ```
+### Music that flows
 
-The workflow stamps the version from the tag into `tauri.conf.json`, `package.json` and `Cargo.toml`, builds Windows (NSIS + MSI), macOS (Apple Silicon and Intel) and Linux (AppImage, deb, rpm), signs the update bundles, uploads everything with a `latest.json` manifest to a draft release, and publishes it once all platforms succeed. Running copies of Mono pick it up within a few hours (or via **Settings → Updates → Check now**). Tags with a suffix such as `v1.0.0-beta.1` are published as pre-releases, which the updater ignores.
+- **Gapless playback.** Live albums and DJ mixes run from track to track without a single dropped beat.
+- **Even volume.** Loud modern masters and quiet old rips play at the same level (ReplayGain).
+- **A waveform you can see.** The seek bar is the song's actual shape, so you can jump straight to the drop.
+- **Loop and slow down.** Set an A–B loop on any section and change speed and pitch independently, great for learning a part or digging into a break.
+- **Real file details.** Bitrate, sample rate, channels and format sit right under the title, no digging through properties.
 
-### One-time setup
+### Lyrics and theater mode
 
-Updates are signed so installed copies only accept builds made with your key. Add the repository secret under **Settings → Secrets and variables → Actions**:
+Press `F` for a big, calm view of the cover art with synced lyrics that follow along (from `.lrc` files, your tags, or [LRCLIB](https://lrclib.net) if you turn it on). Click any line to jump there. Press `F11` to go fullscreen.
 
-| Secret | Value |
-| --- | --- |
-| `TAURI_SIGNING_PRIVATE_KEY` | the contents of your updater private key file |
-| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | only if the key has a password; skip it otherwise (GitHub doesn't allow empty secrets) |
+### Find anything from the keyboard
 
-The matching public key is in `src-tauri/tauri.conf.json` under `plugins.updater.pubkey`. Keep a backup of the private key: without it, existing installs can't verify future updates. A new pair can be made with `pnpm tauri signer generate -w ~/.tauri/mono-updater.key`, after which the public key in `tauri.conf.json` must be replaced.
+`Ctrl+K` opens a search box for every track, folder and action. Type a few letters, hit Enter, done.
 
-Building installers locally with `pnpm tauri build` also needs the key, because updater artifacts are enabled:
+<img src="docs/screenshots/palette.png" alt="Command palette searching for a track" width="820">
 
-```powershell
-$env:TAURI_SIGNING_PRIVATE_KEY = Get-Content -Raw $HOME\.tauri\mono-updater.key; pnpm tauri build
-```
+### Meters, if you like that sort of thing
 
-The builds are not code-signed with an OS certificate, so Windows SmartScreen and macOS Gatekeeper warn on first install.
+A spectrum analyser, oscilloscope, peak meters and loudness (LUFS) readouts, open with `V` and gone again when you don't need them.
 
-## Discord Rich Presence
+<img src="docs/screenshots/visualiser.png" alt="Visualiser panel with spectrum, scope and loudness meters" width="820">
 
-Turn on **Settings → Modules → Discord Rich Presence**. Mono ships with its own Discord application, so your status reads *Listening to mono* with no setup.
+### A tiny player that stays on top
 
-To show a different name, create your own application in the [Discord Developer Portal](https://discord.com/developers/applications) and paste its Application ID into the override field. Upload an art asset with the key `mono` to get the logo next to the activity.
+Press `M` and Mono shrinks into a slim always-on-top strip you can park anywhere. Resize it and everything scales; right-click to choose which meters to show.
 
-## Keyboard
+<img src="docs/screenshots/deck.png" alt="The micro-deck: a slim always-on-top player" width="620">
+
+### Make it yours
+
+- **Themes:** Zinc, Paper, Phosphor, Amber, frosted Glass and Frost, or pick your own colours. The accent can follow each album's cover art.
+- **Fix tags in place:** edit titles, artists, track numbers and cover art from a side drawer, or look them up online.
+- **Discord:** optionally show what you're listening to.
+- **Listening history:** see what you played in the last week or month.
+- **Updates itself** when a new version is out.
+
+---
+
+## How light is it?
+
+Measured on one PC (Ryzen 7 5700X3D, 32 GB, Windows 11), every player playing the same MP3:
+
+| | Opens in | Memory while playing | CPU while playing | Size on disk |
+| --- | ---: | ---: | ---: | ---: |
+| **mono** | **73 ms** | 141 MB | 0.28 % | **9 MB** |
+| AIMP | 687 ms | 22 MB | 0.23 % | 72 MB |
+| VLC | 299 ms | 25 MB | 0.24 % | 172 MB |
+| Spotify | 973 ms | 844 MB&nbsp;(idle) | 3.33 %&nbsp;(idle) | 504 MB |
+
+Mono opens fastest and is the smallest download, uses about a sixth of Spotify's memory, and sits as idle as the classic players once it's playing. It uses more memory than AIMP or VLC because its interface is drawn with the browser engine built into Windows.
+
+<sub>"Opens in" is the time until the window appears. CPU is a share of the whole processor. Spotify can't play a local file on command, so its numbers are idle. Run it yourself with [`scripts/bench.ps1`](scripts/bench.ps1); raw results in [`docs/bench-results.json`](docs/bench-results.json).</sub>
+
+---
+
+## Shortcuts
 
 | Key | Action |
 | --- | --- |
 | `Space` | Play / pause |
-| `←` `→` | Seek ±5 s (`Shift` for ±30 s) |
-| `↑` `↓` `Enter` | Move selection, play |
-| `[` `]` `\` | Set loop A, set loop B, clear loop |
-| `0` | Reset tempo and pitch |
+| `←` `→` | Seek 5 s (hold `Shift` for 30 s) |
+| `↑` `↓` `Enter` | Pick a track and play it |
 | `N` `P` | Next, previous |
-| `R` | Cycle repeat |
+| `[` `]` `\` | Loop start, loop end, clear loop |
+| `0` | Reset speed and pitch |
+| `R` | Repeat off / all / one |
+| `F` | Theater mode and lyrics |
+| `F11` | Fullscreen |
 | `V` | Visualiser |
 | `M` | Micro-deck |
-| `F` | Theater mode and lyrics |
-| `F11` | Fullscreen (`Esc` to leave) |
-| `T` | Tag drawer |
-| `Ctrl+K` `/` | Command palette |
+| `T` | Edit tags |
+| `Ctrl+K` or `/` | Search everything |
 | `Ctrl+,` | Settings |
 
-## Layout
+---
 
-```
-src/                 React interface
-  components/        Title bar, sidebar, track list, transport, seek bar,
-                     palette, tag drawer, settings, visualiser, micro-deck
-  lib/               Tauri API bindings, store, accent extraction, fuzzy search
-src-tauri/
-  src/audio/         Decoder, output stream, player engine, resampler,
-                     time-stretch bindings, waveform, meters
-  src/library.rs     Crates, playlists, watcher, indexer
-  src/meta.rs        Tag + telemetry reading, ReplayGain
-  src/tags.rs        Tag and cover-art writing
-  src/integrations.rs History and Discord Rich Presence
-  vendor/            Signalsmith Stretch (MIT) + C ABI shim
-```
+## Get it
 
-## Licences
+Grab the installer for Windows, macOS or Linux from the [latest release](https://github.com/shybruh/mono/releases/latest). Mono keeps itself up to date after that.
 
-Bundled third-party code: [Signalsmith Stretch](https://github.com/Signalsmith-Audio/signalsmith-stretch) and Signalsmith Linear (MIT) — see `src-tauri/vendor/signalsmith/*/LICENSE.txt`.
+Builds aren't signed with a paid certificate yet, so Windows may show a SmartScreen prompt the first time (*More info → Run anyway*).
+
+Plays MP3, FLAC, WAV, OGG and M4A/AAC.
+
+<sub>Building it yourself or curious how it works? See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Changes are listed in [CHANGELOG.md](CHANGELOG.md). Includes [Signalsmith Stretch](https://github.com/Signalsmith-Audio/signalsmith-stretch) (MIT).</sub>

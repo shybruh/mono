@@ -173,9 +173,9 @@ export function TrackList() {
                       <span className="tabular-nums">
                         {playing && isPlaying ? (
                           <span className="inline-flex h-3 items-end gap-px">
-                            <span className="w-0.5 animate-[eq_0.9s_ease-in-out_infinite] bg-current" />
-                            <span className="w-0.5 animate-[eq_0.7s_ease-in-out_infinite_0.2s] bg-current" />
-                            <span className="w-0.5 animate-[eq_1.1s_ease-in-out_infinite_0.1s] bg-current" />
+                            <span className="h-full w-0.5 origin-bottom animate-[eq_0.9s_ease-in-out_infinite] bg-current" />
+                            <span className="h-full w-0.5 origin-bottom animate-[eq_0.7s_ease-in-out_infinite_0.2s] bg-current" />
+                            <span className="h-full w-0.5 origin-bottom animate-[eq_1.1s_ease-in-out_infinite_0.1s] bg-current" />
                           </span>
                         ) : (
                           String(m.track ?? i + 1).padStart(2, "0")
