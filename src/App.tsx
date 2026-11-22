@@ -14,6 +14,7 @@ import { TagDrawer } from "@/components/TagDrawer";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { Theater } from "@/components/Theater";
 import { QueuePanel } from "@/components/QueuePanel";
+import { ParametricEq } from "@/components/ParametricEq";
 import { SmartCrateDialog } from "@/components/SmartCrateDialog";
 import { AlbumGrid } from "@/components/AlbumGrid";
 import { startAutoCheck } from "@/lib/updater";
@@ -38,7 +39,7 @@ function useShortcuts() {
         s.setSettings(true);
         return;
       }
-      if (isTyping(e) || s.palette || s.settings || s.tagTarget || s.queueOpen || s.smartEdit) return;
+      if (isTyping(e) || s.palette || s.settings || s.tagTarget || s.queueOpen || s.eqOpen || s.smartEdit) return;
       if (ctrl && e.key.toLowerCase() === "a") {
         e.preventDefault();
         s.selectAll();
@@ -83,6 +84,10 @@ function useShortcuts() {
         case "q":
         case "Q":
           s.setQueueOpen(true);
+          break;
+        case "e":
+        case "E":
+          s.setEqOpen(true);
           break;
         case "s":
         case "S":
@@ -212,6 +217,7 @@ export default function App() {
       <CommandPalette />
       <TagDrawer />
       <QueuePanel />
+      <ParametricEq />
       <SmartCrateDialog />
       <SettingsDialog />
     </TooltipProvider>

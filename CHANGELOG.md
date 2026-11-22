@@ -14,8 +14,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **Columns you choose**: right-click the track-list header to show or hide Artist, Album, Album artist, Genre, Year, BPM, Key, Gain, Bitrate, Format, Added and Time. Click a header to sort (again to reverse, a third time for folder order). Key shows as musical (Am) or Camelot (8A).
 - **Multi-select**: Ctrl-click, Shift-click, Shift+arrows and `Ctrl+A`. Right-click actions apply to the whole selection, and the tag drawer edits many tracks at once: fields that differ show "Mixed" and only fields you change are written.
 - **BPM and key detection** (*Analyse BPM and key* on the selection or the whole crate): tempo from an onset-strength autocorrelation, key from a chroma profile, written to the files' BPM and key tags. Both are also editable in the tag drawer.
-- **Equaliser** (10 bands, presets, pre-amp), **headphone crossfeed** and **crossfade** (0-12 s; 0 stays gapless), in a Sound panel on the transport bar.
-- **Sleep timer**: pause after 15-90 minutes or at the end of the current track, fading out over the last 10 seconds.
+- **Parametric equaliser** (`E`): up to 16 bands of bell, low/high shelf, low/high cut (12, 24 or 48 dB/oct) and notch on a frequency graph with a live analyser behind the curve. Drag a node to set frequency and gain, scroll to change Q, double-click to add a band and press Delete to remove one. Values can also be typed. It also has presets, a pre-amp, **headphone crossfeed** and **crossfade** (0-12 s; 0 stays gapless).
+- **Sleep timer** (Settings → Sleep timer): pause after 15-90 minutes or at the end of the current track, fading out over the last 10 seconds.
 - **Resume where you left off**: Mono reopens on the last queue, track and position, and tracks of 15 minutes or more (mixes, audiobooks) each remember where you stopped.
 - **One window at a time**: opening a file while Mono is running hands it to the open window. The installer registers Mono for MP3, FLAC, WAV, OGG and M4A/AAC so it appears in *Open with*.
 - **Smart crates**: saved rules (genre, BPM range, key, year, added in the last N days and more, matching all or any) that update with your library.
@@ -28,6 +28,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Logo files in `docs/brand/`, including a 1024 px square version for the Discord application's `mono` art asset.
 
 ### Changed
+- Settings is wider and split into pages (Library, Playback, Sound, Sleep timer, Appearance, Services, About) with grouped options.
 - The logo's waveform bars are now exactly centred (they sat 8 px left), in the app icon too.
 
 ### Fixed

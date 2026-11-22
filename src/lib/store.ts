@@ -130,6 +130,7 @@ interface Store {
   /** Queue order before shuffling, restored when shuffle is turned off. */
   unshuffled: string[] | null;
   queueOpen: boolean;
+  eqOpen: boolean;
   /** Track list or album grid. */
   layout: "list" | "albums";
   setLayout: (l: "list" | "albums") => void;
@@ -138,6 +139,7 @@ interface Store {
   setQueueOrder: (paths: string[], index: number) => void;
   toggleShuffle: () => void;
   setQueueOpen: (v: boolean) => void;
+  setEqOpen: (v: boolean) => void;
   setKeyNotation: (n: KeyNotation) => void;
   setPalette: (v: boolean) => void;
   setSettings: (v: boolean) => void;
@@ -261,6 +263,7 @@ export const useStore = create<Store>((set, get) => ({
   shuffle: loadJSON<boolean>("mono.shuffle", false),
   unshuffled: null,
   queueOpen: false,
+  eqOpen: false,
   layout: loadJSON<"list" | "albums">("mono.layout.mode", "list"),
   setLayout: (l) => {
     saveJSON("mono.layout.mode", l);
@@ -496,6 +499,7 @@ export const useStore = create<Store>((set, get) => ({
   },
 
   setQueueOpen: (v) => set({ queueOpen: v }),
+  setEqOpen: (v) => set({ eqOpen: v }),
 
   select: (i) => {
     const m = i != null ? get().list[i] : null;

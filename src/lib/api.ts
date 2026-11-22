@@ -83,7 +83,7 @@ export interface Config {
   autoUpdate: boolean;
   resume: boolean;
   smartCrates: SmartCrate[];
-  eq: { enabled: boolean; preamp: number; gains: [number, number, number, number, number, number, number, number, number, number] };
+  eq: import("./eq").EqSettings;
   crossfeed: number;
   crossfade: number;
   seekStyle: "waveform" | "bar";
