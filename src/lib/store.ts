@@ -112,6 +112,21 @@ async function enrich(meta: TrackMeta, req: number): Promise<string | null> {
   return meta.hasCover ? null : m.artwork;
 }
 
+/**
+ * Album art for the Discord status. Discord can only show images from a
+ * public URL, so the cover is looked up on iTunes; with no match the status
+ * falls back to the mono logo.
+ */
+async function sendDiscordArt(meta: TrackMeta) {
+  const c = useStore.getState().config;
+  if (!c?.discord) return;
+  if (!c.discordArt) return void api.discordArt(meta.path, null).catch(() => {});
+  const m = await best(meta, 0.6).catch(() => null);
+  if (useStore.getState().track?.meta.path !== meta.path) return;
+  const url = m?.artwork ? m.artwork.replace(/\/\d+x\d+bb\./, "/512x512bb.") : null;
+  api.discordArt(meta.path, url).catch(() => {});
+}
+
 async function loadCover(meta: TrackMeta) {
   const path = meta.path;
   const req = ++coverReq;
@@ -186,6 +201,9 @@ export const useStore = create<Store>((set, get) => ({
       refreshTheme();
       const t = get().track;
       if (t && prev && prev.metaOnline !== c.metaOnline) loadCover(t.meta);
+      if (library && t && prev && (prev.discord !== c.discord || prev.discordArt !== c.discordArt)) {
+        sendDiscordArt(t.meta);
+      }
     });
     await on.state((s) => set({ player: s }));
     await on.track((t) => {
@@ -194,6 +212,8 @@ export const useStore = create<Store>((set, get) => ({
       if (!prev || prev.meta.path !== t.meta.path || prev.meta.hasCover !== t.meta.hasCover) {
         loadCover(t.meta);
       }
+      // Only the main window talks to Discord (the deck would duplicate it).
+      if (library && (!prev || prev.meta.path !== t.meta.path)) sendDiscordArt(t.meta);
       // Keep the visible list in sync with tag edits.
       const list = get().list;
       const i = list.findIndex((m) => m.path === t.meta.path);

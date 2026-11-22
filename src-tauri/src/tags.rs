@@ -22,6 +22,8 @@ pub struct TagEdit {
     pub track: Option<u32>,
     pub track_total: Option<u32>,
     pub disc: Option<u32>,
+    pub bpm: Option<f32>,
+    pub key: Option<String>,
 }
 
 fn with_tag<F: FnOnce(&mut Tag)>(path: &Path, f: F) -> Result<()> {
@@ -67,6 +69,34 @@ pub fn write(path: &Path, e: &TagEdit) -> Result<()> {
         match e.disc {
             Some(d) if d > 0 => tag.set_disk(d),
             _ => tag.remove_disk(),
+        }
+        set_bpm(tag, e.bpm);
+        set_str(tag, ItemKey::InitialKey, &e.key);
+    })
+}
+
+/// ID3 stores whole-number BPM (TBPM); Vorbis / MP4 keep the decimal form.
+fn set_bpm(tag: &mut Tag, bpm: Option<f32>) {
+    match bpm.filter(|b| *b > 0.0) {
+        Some(b) => {
+            tag.insert_text(ItemKey::IntegerBpm, format!("{}", b.round() as u32));
+            tag.insert_text(ItemKey::Bpm, format!("{:.1}", b).trim_end_matches(".0").to_owned());
+        }
+        None => {
+            tag.remove_key(&ItemKey::IntegerBpm);
+            tag.remove_key(&ItemKey::Bpm);
+        }
+    }
+}
+
+/// Writes only BPM and key (used by analysis).
+pub fn write_bpm_key(path: &Path, bpm: Option<f32>, key: Option<&str>) -> Result<()> {
+    with_tag(path, |tag| {
+        if bpm.is_some() {
+            set_bpm(tag, bpm);
+        }
+        if let Some(k) = key {
+            tag.insert_text(ItemKey::InitialKey, k.to_owned());
         }
     })
 }

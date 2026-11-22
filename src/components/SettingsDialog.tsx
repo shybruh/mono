@@ -212,6 +212,11 @@ export function SettingsDialog() {
               <Switch checked={config.discord} onCheckedChange={(v) => setConfig({ discord: v })} />
             </Row>
             {config.discord && (
+              <Row label="Album art in Discord (looked up on iTunes)">
+                <Switch checked={config.discordArt} onCheckedChange={(v) => setConfig({ discordArt: v })} />
+              </Row>
+            )}
+            {config.discord && (
               <Row label={builtin ? "Application ID override" : "Application ID"}>
                 <Input
                   value={appId}

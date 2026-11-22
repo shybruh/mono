@@ -17,6 +17,8 @@ pub struct Config {
     pub history: bool,
     pub discord: bool,
     pub discord_app_id: String,
+    /// Show album art (from iTunes) in the Discord status.
+    pub discord_art: bool,
     pub theme: String,
     pub custom_theme: CustomTheme,
     pub deck_meters: Vec<String>,
@@ -43,6 +45,7 @@ impl Default for Config {
             history: true,
             discord: false,
             discord_app_id: String::new(),
+            discord_art: true,
             theme: "zinc".into(),
             custom_theme: CustomTheme::default(),
             deck_meters: vec!["spectrum".into(), "peak".into(), "lufs".into(), "cover".into()],

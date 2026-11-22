@@ -43,6 +43,12 @@ pub struct TrackMeta {
     pub rg_album_gain: Option<f32>,
     pub rg_album_peak: Option<f32>,
     pub has_cover: bool,
+    /// Beats per minute (TBPM / BPM).
+    pub bpm: Option<f32>,
+    /// Musical key in standard notation, e.g. "Am", "F#", "Eb" (TKEY / INITIALKEY).
+    pub key: Option<String>,
+    /// File modification time, Unix seconds (used for "recently added").
+    pub mtime: u64,
     /// Title / artist / track number were guessed from the file name.
     pub inferred: bool,
 }
@@ -111,6 +117,12 @@ pub fn read_uncached(path: &Path) -> TrackMeta {
         format,
         ..Default::default()
     };
+    meta.mtime = std::fs::metadata(path)
+        .and_then(|m| m.modified())
+        .ok()
+        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
     let Ok(file) = lofty::read_from_path(path) else {
         fill_from_name(&mut meta, path);
         return meta;
@@ -139,6 +151,15 @@ pub fn read_uncached(path: &Path) -> TrackMeta {
         meta.rg_album_gain = tag.get_string(&ItemKey::ReplayGainAlbumGain).and_then(parse_gain);
         meta.rg_album_peak = tag.get_string(&ItemKey::ReplayGainAlbumPeak).and_then(parse_peak);
         meta.has_cover = !tag.pictures().is_empty();
+        meta.bpm = tag
+            .get_string(&ItemKey::IntegerBpm)
+            .or_else(|| tag.get_string(&ItemKey::Bpm))
+            .and_then(|s| s.trim().parse::<f32>().ok())
+            .filter(|b| *b > 0.0);
+        meta.key = tag
+            .get_string(&ItemKey::InitialKey)
+            .map(|s| s.trim().to_owned())
+            .filter(|s| !s.is_empty());
     }
     fill_from_name(&mut meta, path);
     meta

@@ -11,6 +11,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 - Mono is released under the MIT License (`LICENSE`).
+- **Album art in the Discord status**, like Spotify: the cover is shown large with the mono logo as a small badge. Discord can only display images from a public link, so the cover is looked up on iTunes (*Album art in Discord*, on by default when Discord is enabled); with no match the mono logo is shown instead.
+- Logo files in `docs/brand/`, including a 1024 px square version for the Discord application's `mono` art asset.
+
+### Changed
+- The logo's waveform bars are now exactly centred (they sat 8 px left), in the app icon too.
+
+### Fixed
+- **Discord status sometimes stuck on an old song.** Discord replies to every status update; those replies were never read, so they piled up until Discord stopped accepting updates. Updates could also be dropped after a failed attempt, when skipping quickly hit Discord's rate limit, or when a title or artist was a single character. The status now always converges on the current song: replies are read, updates are paced to stay within Discord's limit with the newest state always sent, and anything that fails is retried after reconnecting.
 
 ## [0.3.0] - 2026-11-22
 

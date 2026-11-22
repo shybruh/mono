@@ -333,6 +333,12 @@ async fn close_deck(app: AppHandle) -> Res<()> {
     Ok(())
 }
 
+/// Album-art URL for the Discord status (looked up by the UI); None clears it.
+#[tauri::command]
+fn discord_art(state: State<AppState>, path: String, url: Option<String>) {
+    let _ = state.hooks.send(Hook::Art { path, url });
+}
+
 #[tauri::command]
 fn quit(app: AppHandle) {
     app.exit(0);
@@ -445,6 +451,7 @@ pub fn run() {
             open_deck,
             close_deck,
             quit,
+            discord_art,
         ])
         .run(tauri::generate_context!())
         .expect("error while running mono");

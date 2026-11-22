@@ -52,6 +52,7 @@ export interface Config {
   history: boolean;
   discord: boolean;
   discordAppId: string;
+  discordArt: boolean;
   theme: string;
   customTheme: { bg: string; fg: string; accent: string; glass?: boolean };
   deckMeters: string[];
@@ -176,6 +177,7 @@ export const api = {
   openDeck: () => invoke<void>("open_deck"),
   closeDeck: () => invoke<void>("close_deck"),
   quit: () => invoke<void>("quit"),
+  discordArt: (path: string, url: string | null) => invoke<void>("discord_art", { path, url }),
 };
 
 export const on = {
