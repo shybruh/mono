@@ -88,9 +88,19 @@ function fmtDur(s: number) {
   return `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
 }
 
-function VersionsPicker({ onPick }: { onPick: (l: Lyrics | null) => void }) {
+function VersionsPicker({
+  onPick,
+  onOpenChange,
+}: {
+  onPick: (l: Lyrics | null) => void;
+  onOpenChange: (open: boolean) => void;
+}) {
   const track = useStore((s) => s.track);
-  const [open, setOpen] = useState(false);
+  const [open, setOpenState] = useState(false);
+  const setOpen = (v: boolean) => {
+    setOpenState(v);
+    onOpenChange(v);
+  };
   const [list, setList] = useState<Version[] | null>(null);
   const m = track?.meta;
 
@@ -151,6 +161,7 @@ export function Theater() {
   const [lyrics, setLyrics] = useState<Lyrics | null>(null);
   const path = track?.meta.path;
   const [offset, setOffsetState] = useState(0);
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
     setOffsetState(path ? getOffset(path) : 0);
@@ -225,7 +236,15 @@ export function Theater() {
         )}
       </div>
 
-      <div className="absolute top-3 right-4 flex items-center gap-0.5 rounded-lg bg-background/60 p-0.5 opacity-0 backdrop-blur transition-opacity group-hover/theater:opacity-100 focus-within:opacity-100">
+      {/* Hidden until the pointer reaches this corner (generous hit area);
+          stays up while the versions list is open. */}
+      <div className="group/ctl absolute top-0 right-0 p-3 pl-10 pb-8">
+      <div
+        className={cn(
+          "flex items-center gap-0.5 rounded-lg bg-background/60 p-0.5 opacity-0 backdrop-blur transition-opacity duration-200 group-hover/ctl:opacity-100",
+          pickerOpen && "opacity-100",
+        )}
+      >
         {hasLyrics && lyrics!.synced && (
           <>
             <button className={ctl} title="Lyrics earlier" onClick={() => nudge(offset - 0.25)}>
@@ -240,7 +259,8 @@ export function Theater() {
             </button>
           </>
         )}
-        {online && m && <VersionsPicker onPick={setLyrics} />}
+        {online && m && <VersionsPicker onPick={setLyrics} onOpenChange={setPickerOpen} />}
+      </div>
       </div>
     </div>
   );
