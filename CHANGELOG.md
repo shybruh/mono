@@ -5,6 +5,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Documentation
+- Shorter README: features as a single list, screenshots in a grid, a compact benchmark table and shortcuts on one line.
+- Added an AI disclosure and the license to the README.
+
+### Added
+- Mono is released under the MIT License (`LICENSE`).
+
 ## [0.3.0] - 2026-11-22
 
 Mono is now about as light on your processor as the classic native players, and the project has a proper front page.
