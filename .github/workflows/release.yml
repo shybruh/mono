@@ -36,18 +36,35 @@ jobs:
         with:
           node-version: 22
 
-      - name: Create draft release
+      - name: Create or reuse draft release
         id: create
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
         run: |
-          node scripts/release-notes.mjs "$GITHUB_REF_NAME" > notes.md
-          flags=(--draft --title "mono $GITHUB_REF_NAME" --notes-file notes.md --verify-tag)
+          node scripts/release-notes.mjs "$TAG" > notes.md
           # Tags like v1.0.0-beta.1 become pre-releases (ignored by the updater).
-          [[ "$GITHUB_REF_NAME" == *-* ]] && flags+=(--prerelease)
-          gh release create "$GITHUB_REF_NAME" "${flags[@]}"
-          id=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=20" \
-            --jq ".[] | select(.tag_name == \"$GITHUB_REF_NAME\") | .id" | head -n1)
+          prerelease=false
+          [[ "$TAG" == *-* ]] && prerelease=true
+
+          # Reuse a release already made for this tag (e.g. a draft left by a
+          # failed run), otherwise create one. The POST returns the id directly.
+          id=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            --jq "[.[] | select(.tag_name == \"$TAG\")][0].id // empty")
+          if [[ -n "$id" ]]; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$id" \
+              -f name="mono $TAG" -F body=@notes.md -F draft=true -F prerelease=$prerelease > /dev/null
+          else
+            id=$(gh api -X POST "repos/$GITHUB_REPOSITORY/releases" \
+              -f tag_name="$TAG" -f name="mono $TAG" -F body=@notes.md \
+              -F draft=true -F prerelease=$prerelease --jq .id)
+          fi
+
+          if [[ -z "$id" ]]; then
+            echo "::error::Could not create a release for $TAG"
+            exit 1
+          fi
+          echo "Release id: $id"
           echo "id=$id" >> "$GITHUB_OUTPUT"
 
   build:
@@ -114,6 +131,7 @@ jobs:
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
         run: |
-          gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/${{ needs.create-release.outputs.release_id }}" \
-            -F draft=false > /dev/null
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" -F draft=false > /dev/null
+          echo "Published release $RELEASE_ID"
