@@ -13,6 +13,7 @@ import { CommandPalette } from "@/components/CommandPalette";
 import { TagDrawer } from "@/components/TagDrawer";
 import { SettingsDialog } from "@/components/SettingsDialog";
 import { Theater } from "@/components/Theater";
+import { startAutoCheck } from "@/lib/updater";
 
 function isTyping(e: KeyboardEvent) {
   const t = e.target as HTMLElement | null;
@@ -135,9 +136,13 @@ export default function App() {
   const hasRoots = useStore((s) => (s.config ? s.config.roots.length > 0 : true));
   const theater = useStore((s) => s.theater);
   const fullscreen = useStore((s) => s.fullscreen);
+  const autoUpdate = useStore((s) => s.config?.autoUpdate);
   useEffect(() => {
     init();
   }, [init]);
+  useEffect(() => {
+    if (autoUpdate !== undefined) startAutoCheck(autoUpdate);
+  }, [autoUpdate]);
   useShortcuts();
 
   return (

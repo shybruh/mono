@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { FolderPlus, X } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { api } from "@/lib/api";
+import { checkForUpdate, installUpdate, useUpdater } from "@/lib/updater";
+import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
@@ -37,9 +39,17 @@ export function SettingsDialog() {
   const [preamp, setPreamp] = useState(0);
   const [appId, setAppId] = useState("");
   const [builtin, setBuiltin] = useState(false);
+  const [version, setVersion] = useState("");
+  const upd = useUpdater();
 
   useEffect(() => {
-    api.appInfo().then((i) => setBuiltin(i.discordBuiltin)).catch(() => {});
+    api
+      .appInfo()
+      .then((i) => {
+        setBuiltin(i.discordBuiltin);
+        setVersion(i.version);
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -146,6 +156,43 @@ export function SettingsDialog() {
                 disabled={!themeById(config.theme).coverAccent}
                 onCheckedChange={(v) => setConfig({ coverAccent: v })}
               />
+            </Row>
+          </Section>
+
+          <Separator />
+
+          <Section title="Updates">
+            <Row label={version ? `mono ${version}` : "mono"}>
+              <span className="font-mono text-[12px] text-muted-foreground">
+                {upd.status === "checking"
+                  ? "Checking"
+                  : upd.status === "current"
+                    ? "Up to date"
+                    : upd.status === "available" && upd.update
+                      ? `${upd.update.version} available`
+                      : upd.status === "downloading"
+                        ? `${Math.round(upd.progress * 100)}%`
+                        : upd.status === "error"
+                          ? "Check failed"
+                          : ""}
+              </span>
+              {upd.status === "available" ? (
+                <Button size="sm" onClick={installUpdate} className="bg-brand text-brand-foreground hover:bg-brand-strong">
+                  Install and restart
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={upd.status === "checking" || upd.status === "downloading"}
+                  onClick={checkForUpdate}
+                >
+                  Check now
+                </Button>
+              )}
+            </Row>
+            <Row label="Check for updates automatically">
+              <Switch checked={config.autoUpdate} onCheckedChange={(v) => setConfig({ autoUpdate: v })} />
             </Row>
           </Section>
 

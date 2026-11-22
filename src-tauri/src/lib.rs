@@ -340,7 +340,11 @@ fn quit(app: AppHandle) {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init())
         .setup(|app| {
+            #[cfg(desktop)]
+            app.handle().plugin(tauri_plugin_updater::Builder::new().build())?;
+
             let handle = app.handle().clone();
             let cfg_dir = app.path().app_config_dir()?;
             let data_dir = app.path().app_data_dir()?;

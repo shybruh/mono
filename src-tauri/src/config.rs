@@ -26,6 +26,8 @@ pub struct Config {
     pub lyrics_online: bool,
     /// Look up missing album / cover art on iTunes for the playing track.
     pub meta_online: bool,
+    /// Check GitHub Releases for signed updates in the background.
+    pub auto_update: bool,
     /// "waveform" or "bar".
     pub seek_style: String,
 }
@@ -49,6 +51,7 @@ impl Default for Config {
             cover_accent: true,
             lyrics_online: false,
             meta_online: false,
+            auto_update: true,
             seek_style: "waveform".into(),
         }
     }

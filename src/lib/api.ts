@@ -60,6 +60,7 @@ export interface Config {
   coverAccent: boolean;
   lyricsOnline: boolean;
   metaOnline: boolean;
+  autoUpdate: boolean;
   seekStyle: "waveform" | "bar";
 }
 
