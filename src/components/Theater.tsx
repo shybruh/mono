@@ -2,9 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, type Lyrics } from "@/lib/api";
 import { useStore } from "@/lib/store";
 import { chooseVersion, getOffset, loadLyrics, setOffset, versions, type Version } from "@/lib/lrclib";
-import { ListMusic, Loader2, Minus, Plus } from "lucide-react";
+import { ListMusic, Loader2, Maximize, Minimize, Minus, Plus, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
+import { cn, fmtTime } from "@/lib/utils";
 
 /** Index of the last synced line at or before `t`. */
 function activeLine(lyrics: Lyrics, t: number): number {
@@ -154,7 +154,56 @@ function VersionsPicker({
 const ctl =
   "flex h-7 min-w-7 items-center justify-center rounded-md px-1.5 font-mono text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground [&_svg]:size-3.5";
 
-export function Theater() {
+/** Thin status line for fullscreen: elapsed · bar · total, click to seek. */
+function MiniSeek() {
+  const pos = useStore((s) => s.pos);
+  const duration = useStore((s) => s.duration);
+  const bar = useRef<HTMLDivElement>(null);
+  const f = duration > 0 ? Math.min(1, pos / duration) : 0;
+  return (
+    <div className="absolute inset-x-[6vw] bottom-[3.5vh] flex items-center gap-4 font-mono text-[12px] text-muted-foreground tabular-nums">
+      <span className="w-12 text-right">{fmtTime(pos)}</span>
+      <div
+        ref={bar}
+        className="group/seek relative h-4 flex-1 cursor-pointer"
+        onPointerDown={(e) => {
+          const r = bar.current!.getBoundingClientRect();
+          if (duration > 0) api.seek(((e.clientX - r.left) / r.width) * duration);
+        }}
+      >
+        <div className="absolute inset-x-0 top-1/2 h-[3px] -translate-y-1/2 overflow-hidden rounded-full bg-foreground/15 transition-[height] group-hover/seek:h-[5px]">
+          <div className="h-full rounded-full bg-brand" style={{ width: `${f * 100}%` }} />
+        </div>
+      </div>
+      <span className="w-12">{fmtTime(duration)}</span>
+    </div>
+  );
+}
+
+/** True after `ms` without pointer movement; used to hide the cursor. */
+function useIdle(active: boolean, ms = 2500) {
+  const [idle, setIdle] = useState(false);
+  useEffect(() => {
+    if (!active) return setIdle(false);
+    let t = window.setTimeout(() => setIdle(true), ms);
+    const wake = () => {
+      setIdle(false);
+      window.clearTimeout(t);
+      t = window.setTimeout(() => setIdle(true), ms);
+    };
+    window.addEventListener("pointermove", wake);
+    window.addEventListener("keydown", wake);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener("pointermove", wake);
+      window.removeEventListener("keydown", wake);
+    };
+  }, [active, ms]);
+  return idle;
+}
+
+export function Theater({ fullscreen = false }: { fullscreen?: boolean }) {
+  const idle = useIdle(fullscreen);
   const track = useStore((s) => s.track);
   const cover = useStore((s) => s.cover);
   const online = useStore((s) => s.config?.lyricsOnline ?? false);
@@ -194,7 +243,12 @@ export function Theater() {
   const hasLyrics = !!lyrics && lyrics.lines.length > 0;
 
   return (
-    <div className="group/theater relative flex min-h-0 flex-1 overflow-hidden animate-in fade-in duration-300">
+    <div
+      className={cn(
+        "relative flex min-h-0 flex-1 overflow-hidden animate-in fade-in duration-300",
+        fullscreen && idle && "cursor-none",
+      )}
+    >
       {cover && (
         <img
           src={cover}
@@ -208,14 +262,23 @@ export function Theater() {
 
       <div
         className={cn(
-          "relative flex min-h-0 flex-1 items-center gap-[5vw] px-[6vw] py-8",
+          "relative flex min-h-0 flex-1 items-center gap-[5vw] px-[6vw]",
+          fullscreen ? "pt-[6vh] pb-[11vh]" : "py-8",
           !hasLyrics && "justify-center",
         )}
       >
         <div className={cn("flex shrink-0 flex-col", !hasLyrics && "items-center text-center")}>
           <div
             className="aspect-square overflow-hidden rounded-xl bg-brand-wash shadow-2xl shadow-black/50"
-            style={{ width: hasLyrics ? "min(52vh, 34vw)" : "min(58vh, 50vw)" }}
+            style={{
+              width: fullscreen
+                ? hasLyrics
+                  ? "min(60vh, 36vw)"
+                  : "min(66vh, 56vw)"
+                : hasLyrics
+                  ? "min(52vh, 34vw)"
+                  : "min(58vh, 50vw)",
+            }}
           >
             {cover && <img src={cover} alt="" className="size-full object-cover" draggable={false} />}
           </div>
@@ -260,8 +323,21 @@ export function Theater() {
           </>
         )}
         {online && m && <VersionsPicker onPick={setLyrics} onOpenChange={setPickerOpen} />}
+        <button
+          className={ctl}
+          title={fullscreen ? "Exit fullscreen (Esc)" : "Fullscreen (F11)"}
+          onClick={() => useStore.getState().toggleFullscreen()}
+        >
+          {fullscreen ? <Minimize /> : <Maximize />}
+        </button>
+        {fullscreen && (
+          <button className={ctl} title="Close" onClick={() => useStore.getState().toggleTheater(false)}>
+            <X />
+          </button>
+        )}
       </div>
       </div>
+      {fullscreen && <MiniSeek />}
     </div>
   );
 }

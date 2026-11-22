@@ -29,6 +29,7 @@ function actions(): Action[] {
     { id: "repeat", label: `Repeat: ${s.player.repeat} → next`, keys: "R", run: s.cycleRepeat },
     { id: "viz", label: "Toggle visualiser", keys: "V", run: s.toggleViz },
     { id: "theater", label: "Theater and lyrics", keys: "F", run: () => s.toggleTheater() },
+    { id: "fullscreen", label: "Fullscreen", keys: "F11", run: () => s.toggleFullscreen() },
     { id: "deck", label: "Micro-deck", keys: "M", run: () => api.openDeck() },
     { id: "tags", label: "Edit tags", keys: "T", run: () => tagPath && s.openTags(tagPath) },
     { id: "folder", label: "Add folder", run: addFolder },

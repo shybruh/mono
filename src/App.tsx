@@ -106,7 +106,12 @@ function useShortcuts() {
           s.toggleTheater();
           break;
         case "Escape":
-          if (s.theater) s.toggleTheater(false);
+          if (s.fullscreen) s.toggleFullscreen(false);
+          else if (s.theater) s.toggleTheater(false);
+          break;
+        case "F11":
+          e.preventDefault();
+          s.toggleFullscreen();
           break;
         case "m":
         case "M":
@@ -129,6 +134,7 @@ export default function App() {
   const init = useStore((s) => s.init);
   const hasRoots = useStore((s) => (s.config ? s.config.roots.length > 0 : true));
   const theater = useStore((s) => s.theater);
+  const fullscreen = useStore((s) => s.fullscreen);
   useEffect(() => {
     init();
   }, [init]);
@@ -136,6 +142,11 @@ export default function App() {
 
   return (
     <TooltipProvider delayDuration={400}>
+      {fullscreen ? (
+        <div className="flex h-full flex-col">
+          <Theater fullscreen />
+        </div>
+      ) : (
       <div className="flex h-full flex-col">
         <TitleBar />
         {theater ? (
@@ -163,6 +174,7 @@ export default function App() {
         <VisualizerPanel />
         <Transport />
       </div>
+      )}
       <CommandPalette />
       <TagDrawer />
       <SettingsDialog />

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   api,
   on,
@@ -41,6 +42,8 @@ interface Store {
   tagTarget: string | null;
   theater: boolean;
   toggleTheater: (v?: boolean) => void;
+  fullscreen: boolean;
+  toggleFullscreen: (v?: boolean) => void;
 
   init: (opts?: { library?: boolean }) => Promise<void>;
   setConfig: (patch: Partial<Config>) => Promise<void>;
@@ -154,7 +157,21 @@ export const useStore = create<Store>((set, get) => ({
   settings: false,
   tagTarget: null,
   theater: false,
-  toggleTheater: (v) => set({ theater: v ?? !get().theater }),
+  toggleTheater: (v) => {
+    const theater = v ?? !get().theater;
+    if (!theater && get().fullscreen) get().toggleFullscreen(false);
+    set({ theater });
+  },
+  fullscreen: false,
+  // Fullscreen is theater mode with the window filling the screen and all
+  // other chrome hidden.
+  toggleFullscreen: (v) => {
+    const on = v ?? !get().fullscreen;
+    set({ fullscreen: on, theater: on ? true : get().theater });
+    getCurrentWindow()
+      .setFullscreen(on)
+      .catch(() => set({ fullscreen: false }));
+  },
 
   init: async ({ library = true } = {}) => {
     if (get().ready) return;

@@ -49,6 +49,8 @@ To show a different name, create your own application in the [Discord Developer 
 | `R` | Cycle repeat |
 | `V` | Visualiser |
 | `M` | Micro-deck |
+| `F` | Theater mode and lyrics |
+| `F11` | Fullscreen (`Esc` to leave) |
 | `T` | Tag drawer |
 | `Ctrl+K` `/` | Command palette |
 | `Ctrl+,` | Settings |
