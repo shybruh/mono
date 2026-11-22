@@ -17,7 +17,8 @@ pub struct Config {
     pub history: bool,
     pub discord: bool,
     pub discord_app_id: String,
-    pub deck_skin: String,
+    pub theme: String,
+    pub custom_theme: CustomTheme,
     pub deck_meters: Vec<String>,
     pub viz_open: bool,
     pub viz_meters: Vec<String>,
@@ -35,12 +36,27 @@ impl Default for Config {
             history: true,
             discord: false,
             discord_app_id: String::new(),
-            deck_skin: "zinc".into(),
+            theme: "zinc".into(),
+            custom_theme: CustomTheme::default(),
             deck_meters: vec!["spectrum".into(), "peak".into(), "lufs".into(), "cover".into()],
             viz_open: false,
             viz_meters: vec!["spectrum".into(), "scope".into(), "peak".into(), "lufs".into()],
             cover_accent: true,
         }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+#[serde(default)]
+pub struct CustomTheme {
+    pub bg: String,
+    pub fg: String,
+    pub accent: String,
+}
+
+impl Default for CustomTheme {
+    fn default() -> Self {
+        Self { bg: "#09090b".into(), fg: "#e4e4e7".into(), accent: "#a78bfa".into() }
     }
 }
 

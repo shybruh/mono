@@ -242,8 +242,8 @@ fn sync_state(state: State<AppState>) {
     state.player.send(Cmd::EmitState);
 }
 #[tauri::command]
-fn set_meters(window: WebviewWindow, state: State<AppState>, on: bool) {
-    state.player.set_meters(window.label(), on);
+fn set_meters(window: WebviewWindow, state: State<AppState>, on: bool, seq: u64) {
+    state.player.set_meters(window.label(), on, seq);
 }
 
 // ------------------------------------------------------------------ windows
@@ -256,14 +256,12 @@ async fn open_deck(app: AppHandle) -> Res<()> {
     } else {
         WebviewWindowBuilder::new(&app, "deck", WebviewUrl::App("index.html?view=deck".into()))
             .title("mono")
-            .inner_size(620.0, 64.0)
-            .min_inner_size(300.0, 52.0)
-            .max_inner_size(4000.0, 220.0)
+            // Width is fitted to the enabled meters by the page itself.
+            .inner_size(560.0, 64.0)
             .decorations(false)
             .always_on_top(true)
-            .resizable(true)
+            .resizable(false)
             .shadow(true)
-            .background_color(tauri::window::Color(9, 9, 11, 255))
             .build()
             .map_err(err)?;
     }
@@ -281,7 +279,7 @@ async fn close_deck(app: AppHandle) -> Res<()> {
         main.set_focus().map_err(err)?;
     }
     if let Some(w) = app.get_webview_window("deck") {
-        app.state::<AppState>().player.set_meters("deck", false);
+        app.state::<AppState>().player.drop_window("deck");
         w.close().map_err(err)?;
     }
     Ok(())
@@ -331,13 +329,17 @@ pub fn run() {
             library::spawn_indexer(handle, cfg.roots);
             Ok(())
         })
-        .on_window_event(|window, event| {
+        .on_window_event(|window, event| match event {
             // Closing the main window quits, even if the deck is open.
-            if let tauri::WindowEvent::CloseRequested { .. } = event {
-                if window.label() == "main" {
-                    window.app_handle().exit(0);
+            tauri::WindowEvent::CloseRequested { .. } if window.label() == "main" => {
+                window.app_handle().exit(0);
+            }
+            tauri::WindowEvent::Destroyed => {
+                if let Some(state) = window.app_handle().try_state::<AppState>() {
+                    state.player.drop_window(window.label());
                 }
             }
+            _ => {}
         })
         .invoke_handler(tauri::generate_handler![
             get_config,

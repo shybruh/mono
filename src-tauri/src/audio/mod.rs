@@ -6,7 +6,7 @@ pub mod source;
 pub mod stretch;
 pub mod waveform;
 
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::Arc;
 
@@ -71,26 +71,42 @@ impl Shared {
 pub struct Player {
     pub tx: Sender<Cmd>,
     pub shared: Arc<Shared>,
-    meter_windows: Mutex<HashSet<String>>,
+    /// Per window: (latest request sequence, wants meters).
+    meter_windows: Mutex<HashMap<String, (u64, bool)>>,
 }
 
 impl Player {
     pub fn new(tx: Sender<Cmd>, shared: Arc<Shared>) -> Self {
-        Self { tx, shared, meter_windows: Mutex::new(HashSet::new()) }
+        Self { tx, shared, meter_windows: Mutex::new(HashMap::new()) }
     }
 
     pub fn send(&self, cmd: Cmd) {
         let _ = self.tx.send(cmd);
     }
 
-    /// Meters run while any window asks for them.
-    pub fn set_meters(&self, window: &str, on: bool) {
-        let mut set = self.meter_windows.lock();
-        if on {
-            set.insert(window.to_owned());
-        } else {
-            set.remove(window);
+    /// Meters run while any window asks for them. Requests older than the
+    /// last one seen from that window are ignored, so IPC reordering can't
+    /// leave meters stuck off (or on).
+    pub fn set_meters(&self, window: &str, on: bool, seq: u64) {
+        let mut map = self.meter_windows.lock();
+        match map.get(window) {
+            Some((last, _)) if *last >= seq => return,
+            _ => {
+                map.insert(window.to_owned(), (seq, on));
+            }
         }
-        self.shared.meters_on.store(!set.is_empty(), Ordering::Relaxed);
+        self.refresh(&map);
+    }
+
+    /// Forget a window entirely (closed or destroyed).
+    pub fn drop_window(&self, window: &str) {
+        let mut map = self.meter_windows.lock();
+        map.remove(window);
+        self.refresh(&map);
+    }
+
+    fn refresh(&self, map: &HashMap<String, (u64, bool)>) {
+        let any = map.values().any(|(_, on)| *on);
+        self.shared.meters_on.store(any, Ordering::Relaxed);
     }
 }

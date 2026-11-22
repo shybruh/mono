@@ -3,26 +3,13 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Maximize2, Pause, Pin, PinOff, Play, SkipBack, SkipForward, X } from "lucide-react";
 import { api } from "@/lib/api";
 import { useStore } from "@/lib/store";
-import {
-  ContextMenu,
-  ContextMenuCheckboxItem,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuLabel,
-  ContextMenuRadioGroup,
-  ContextMenuRadioItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
+import { CheckMenuItem, Menu, MenuItem, PredefinedMenuItem, Submenu } from "@tauri-apps/api/menu";
+import { LogicalPosition, LogicalSize } from "@tauri-apps/api/dpi";
+import { THEMES } from "@/lib/theme";
 import { PeakMeter, Scope, Spectrum, fmtDb, useReadout } from "./meters/Meters";
 import { fmtTime } from "@/lib/utils";
 
-export const DECK_SKINS = [
-  { id: "zinc", label: "Zinc" },
-  { id: "cover", label: "Cover" },
-  { id: "phosphor", label: "Phosphor" },
-  { id: "amber", label: "Amber" },
-] as const;
+const DECK_HEIGHT = 64;
 
 const METERS = [
   { id: "spectrum", label: "Spectrum" },
@@ -80,12 +67,27 @@ export function Deck() {
   const duration = useStore((s) => s.duration);
   const [pinned, setPinned] = useState(true);
 
-  const skin = config?.deckSkin ?? "zinc";
+  const theme = config?.theme ?? "zinc";
   const meters = new Set(config?.deckMeters ?? ["spectrum", "peak", "lufs", "cover"]);
+  const content = useRef<HTMLDivElement>(null);
 
+  // The window hugs its content: it grows and shrinks with the enabled meters.
   useEffect(() => {
-    document.documentElement.dataset.skin = skin;
-  }, [skin]);
+    const el = content.current;
+    if (!el) return;
+    let last = 0;
+    const fit = () => {
+      const w = Math.ceil(el.getBoundingClientRect().width);
+      if (w > 0 && w !== last) {
+        last = w;
+        win.setSize(new LogicalSize(w, DECK_HEIGHT));
+      }
+    };
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    fit();
+    return () => ro.disconnect();
+  }, []);
 
   const toggleMeter = (id: string) => {
     const next = new Set(meters);
@@ -94,20 +96,51 @@ export function Deck() {
     useStore.getState().setConfig({ deckMeters: [...next] });
   };
 
+  // Native menu: the deck window is too short to contain an in-page menu.
+  const openMenu = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    const setCfg = useStore.getState().setConfig;
+    const skins = await Submenu.new({
+      text: "Theme",
+      items: await Promise.all(
+        THEMES.map((t) =>
+          CheckMenuItem.new({ text: t.label, checked: theme === t.id, action: () => setCfg({ theme: t.id }) }),
+        ),
+      ),
+    });
+    const meterItems = await Submenu.new({
+      text: "Meters",
+      items: await Promise.all(
+        METERS.map((m) =>
+          CheckMenuItem.new({ text: m.label, checked: meters.has(m.id), action: () => toggleMeter(m.id) }),
+        ),
+      ),
+    });
+    const menu = await Menu.new({
+      items: [
+        skins,
+        meterItems,
+        await PredefinedMenuItem.new({ item: "Separator" }),
+        await MenuItem.new({ text: "Back to main window", action: () => api.closeDeck() }),
+      ],
+    });
+    await menu.popup(new LogicalPosition(e.clientX, e.clientY));
+  };
+
   const iconBtn =
     "flex items-center justify-center rounded-md p-1 text-(--deck-fg) hover:bg-(--deck-track) [&_svg]:size-4";
 
   return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <div
-          className="deck group relative flex h-screen items-center gap-3.5 overflow-hidden bg-(--deck-bg) py-2 pr-3 pl-2 font-(family-name:--deck-font) text-(--deck-fg)"
-          onMouseDown={(e) => {
-            if (e.button !== 0) return;
-            if ((e.target as HTMLElement).closest("button")) return;
-            win.startDragging();
-          }}
-        >
+    <div
+      onContextMenu={openMenu}
+      className="deck group relative h-screen overflow-hidden bg-(--deck-bg) font-(family-name:--theme-font) text-(--deck-fg)"
+      onMouseDown={(e) => {
+        if (e.button !== 0) return;
+        if ((e.target as HTMLElement).closest("button")) return;
+        win.startDragging();
+      }}
+    >
+        <div ref={content} className="flex h-full w-max items-center gap-3.5 py-2 pr-3 pl-2">
           {meters.has("cover") && (
             <div className="aspect-square h-[calc(100%-4px)] max-h-14 shrink-0 overflow-hidden rounded-md bg-(--deck-track)">
               {cover && <img src={cover} alt="" className="size-full object-cover" draggable={false} />}
@@ -120,7 +153,7 @@ export function Deck() {
             <button
               aria-label={playing ? "Pause" : "Play"}
               onClick={() => api.toggle()}
-              className="flex size-[30px] items-center justify-center rounded-full bg-(--deck-acc) text-(--deck-bg) hover:opacity-85 [&_svg]:size-3.5 [&_svg]:fill-current"
+              className="flex size-[30px] items-center justify-center rounded-full bg-(--deck-acc) text-brand-foreground hover:opacity-85 [&_svg]:size-3.5 [&_svg]:fill-current"
             >
               {playing ? <Pause /> : <Play className="translate-x-px" />}
             </button>
@@ -128,11 +161,13 @@ export function Deck() {
               <SkipForward />
             </button>
           </div>
-          <div className="min-w-0 flex-1">
+          <div className="w-[200px] min-w-0">
             <div className="truncate text-[12px] font-medium">{track?.meta.title ?? "—"}</div>
-            <div className="truncate font-mono text-[11px] text-(--deck-mut)">
-              {track?.meta.artist ? `${track.meta.artist} · ` : ""}
-              {fmtTime(pos)} / {fmtTime(duration)}
+            <div className="flex gap-1.5 font-mono text-[11px] text-(--deck-mut)">
+              <span className="min-w-0 truncate">{track?.meta.artist ?? ""}</span>
+              <span className="ml-auto shrink-0 tabular-nums">
+                {fmtTime(pos)} / {fmtTime(duration)}
+              </span>
             </div>
           </div>
           {meters.has("spectrum") && <Spectrum className="h-10 w-[150px] shrink-0" />}
@@ -147,6 +182,7 @@ export function Deck() {
             </div>
           )}
           {meters.has("lufs") && <Lufs />}
+        </div>
 
           <div className="absolute top-1 right-1.5 flex gap-0.5 bg-(--deck-bg) pl-1.5 opacity-0 transition-opacity group-hover:opacity-100 [&_svg]:size-3.5!">
             <button
@@ -167,32 +203,6 @@ export function Deck() {
             </button>
           </div>
           <Progress />
-        </div>
-      </ContextMenuTrigger>
-      <ContextMenuContent className="w-48">
-        <ContextMenuLabel className="text-[11px] font-normal text-muted-foreground">Skin</ContextMenuLabel>
-        <ContextMenuRadioGroup value={skin} onValueChange={(v) => useStore.getState().setConfig({ deckSkin: v })}>
-          {DECK_SKINS.map((s) => (
-            <ContextMenuRadioItem key={s.id} value={s.id}>
-              {s.label}
-            </ContextMenuRadioItem>
-          ))}
-        </ContextMenuRadioGroup>
-        <ContextMenuSeparator />
-        <ContextMenuLabel className="text-[11px] font-normal text-muted-foreground">Meters</ContextMenuLabel>
-        {METERS.map((m) => (
-          <ContextMenuCheckboxItem
-            key={m.id}
-            checked={meters.has(m.id)}
-            onCheckedChange={() => toggleMeter(m.id)}
-            onSelect={(e) => e.preventDefault()}
-          >
-            {m.label}
-          </ContextMenuCheckboxItem>
-        ))}
-        <ContextMenuSeparator />
-        <ContextMenuItem onSelect={() => api.closeDeck()}>Back to main window</ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
+    </div>
   );
 }

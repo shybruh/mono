@@ -161,7 +161,7 @@ function Volume() {
 export function Transport() {
   const repeat = useStore((s) => s.player.repeat);
   return (
-    <div className="relative z-10 shrink-0 border-t bg-background px-4 pb-3.5 pt-6">
+    <div className="relative z-10 shrink-0 border-t bg-background px-4 pb-3.5 pt-5">
       <SeekBar />
       <div className="mt-3.5 flex items-center justify-between">
         <div className="flex items-center gap-2.5">

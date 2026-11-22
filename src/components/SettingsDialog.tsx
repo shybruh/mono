@@ -8,7 +8,8 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { addFolder } from "./Sidebar";
-import { DECK_SKINS } from "./Deck";
+import { ThemePicker } from "./ThemePicker";
+import { themeById } from "@/lib/theme";
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -115,23 +116,14 @@ export function SettingsDialog() {
 
           <Separator />
 
-          <Section title="Appearance">
+          <Section title="Theme">
+            <ThemePicker />
             <Row label="Accent from cover art">
-              <Switch checked={config.coverAccent} onCheckedChange={(v) => setConfig({ coverAccent: v })} />
-            </Row>
-            <Row label="Micro-deck skin">
-              <Select value={config.deckSkin} onValueChange={(v) => setConfig({ deckSkin: v })}>
-                <SelectTrigger size="sm" className="w-28">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DECK_SKINS.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Switch
+                checked={config.coverAccent}
+                disabled={!themeById(config.theme).coverAccent}
+                onCheckedChange={(v) => setConfig({ coverAccent: v })}
+              />
             </Row>
           </Section>
 

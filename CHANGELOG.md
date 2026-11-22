@@ -5,6 +5,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+- The waveform is now the seek bar itself: an always-visible, symmetrical amplitude envelope (48 px) replaces the thin bar and hover pop-out. Click or drag anywhere on it to scrub; hovering previews the jump and shows the target time. On track change the bars morph from the previous envelope to the new one in a left-to-right sweep.
+- **App-wide themes** replace the deck-only skins: Zinc, Paper (light), Phosphor, Amber and Custom. Every UI colour is derived from three base colours (background, text, accent), so a theme applies consistently to the main window, dialogs, meters and the micro-deck. Theme changes and cover-accent changes cross-fade.
+- **Custom theme**: pick background, text and accent colours with a colour picker or hex input; changes preview live. Choosing Custom the first time starts from the theme currently shown.
+- Cover-art accent now works on light themes (darker accent) and is skipped for near-greyscale covers and for the Phosphor and Amber themes.
+- Text on accent-coloured controls picks black or white for contrast automatically.
+- **Micro-deck sizes itself** to its content: it shrinks when meters are turned off and grows when they are turned on. The title column is fixed-width so the deck doesn't jump between tracks, and the time readout no longer gets truncated by long artist names. The deck's right-click menu now offers *Theme* instead of *Skin*.
+
+### Fixed
+- Micro-deck right-click menu was clipped by the 64 px window; it is now a native menu (Skin and Meters submenus, Back to main window) that can extend past the deck.
+
 ## [0.1.0] - 2026-11-22
 
 First working build.

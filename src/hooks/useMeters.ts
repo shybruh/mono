@@ -1,33 +1,56 @@
 import { useEffect, useRef } from "react";
-import type { UnlistenFn } from "@tauri-apps/api/event";
 import { api, on, type Meters } from "@/lib/api";
 
 // One listener per window, shared by every meter on screen. The backend only
-// runs analysis while at least one consumer is mounted.
+// runs analysis while at least one window wants meters.
+//
+// On/off requests are coalesced and carry a strictly increasing sequence
+// number, so out-of-order IPC (StrictMode double mounts, quick toggles,
+// page reloads) can never leave the backend in a stale state.
 const latest: { current: Meters | null; at: number } = { current: null, at: 0 };
 let users = 0;
-let unlisten: Promise<UnlistenFn> | null = null;
+let listening = false;
+let timer: number | undefined;
+let seq = Date.now() * 1000;
+let sentOn: boolean | null = null;
+
+function sync() {
+  window.clearTimeout(timer);
+  timer = window.setTimeout(() => {
+    const want = users > 0;
+    if (want === sentOn) return;
+    sentOn = want;
+    api.setMeters(want, ++seq).catch(() => {
+      sentOn = null;
+    });
+    if (!want) latest.current = null;
+  }, 40);
+}
 
 function acquire() {
   users += 1;
-  if (users === 1) {
-    unlisten = on.meters((m) => {
-      latest.current = m;
-      latest.at = performance.now();
+  if (!listening) {
+    listening = true;
+    on.meters((m) => {
+      if (users > 0) {
+        latest.current = m;
+        latest.at = performance.now();
+      }
     });
-    api.setMeters(true);
   }
+  sync();
 }
 
 function release() {
   users = Math.max(0, users - 1);
-  if (users === 0) {
-    api.setMeters(false);
-    unlisten?.then((u) => u());
-    unlisten = null;
-    latest.current = null;
-  }
+  sync();
 }
+
+// Self-heal: re-assert the desired state every few seconds while meters are
+// on screen (covers a backend restart during development).
+window.setInterval(() => {
+  if (users > 0) api.setMeters(true, ++seq).catch(() => {});
+}, 3000);
 
 export function useMeters(enabled = true) {
   const ref = useRef(latest);

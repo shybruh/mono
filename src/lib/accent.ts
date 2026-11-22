@@ -57,13 +57,6 @@ export async function accentFromImage(src: string): Promise<{ h: number; c: numb
   return { h: best * 10 + 5, c: Math.min(0.2, Math.max(0.08, c)) };
 }
 
-export function applyAccent(a: { h: number; c: number } | null) {
-  const v = a ?? DEFAULT;
-  const root = document.documentElement.style;
-  root.setProperty("--accent-h", String(v.h));
-  root.setProperty("--accent-c", String(v.c));
-}
-
 /** Resolves a CSS colour (incl. var()/calc) to something canvas accepts. */
 const probeCache = new WeakMap<Element, HTMLSpanElement>();
 export function resolveColor(el: Element, value: string): string {

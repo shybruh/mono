@@ -51,7 +51,8 @@ export interface Config {
   history: boolean;
   discord: boolean;
   discordAppId: string;
-  deckSkin: string;
+  theme: string;
+  customTheme: { bg: string; fg: string; accent: string };
   deckMeters: string[];
   vizOpen: boolean;
   vizMeters: string[];
@@ -138,7 +139,7 @@ export const api = {
   setVolume: (volume: number) => invoke<void>("set_volume", { volume }),
   setRepeat: (repeat: Repeat) => invoke<void>("set_repeat", { repeat }),
   syncState: () => invoke<void>("sync_state"),
-  setMeters: (on: boolean) => invoke<void>("set_meters", { on }),
+  setMeters: (on: boolean, seq: number) => invoke<void>("set_meters", { on, seq }),
 
   openDeck: () => invoke<void>("open_deck"),
   closeDeck: () => invoke<void>("close_deck"),

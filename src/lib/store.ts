@@ -9,7 +9,8 @@ import {
   type TrackEvent,
   type TrackMeta,
 } from "./api";
-import { accentFromImage, applyAccent } from "./accent";
+import { accentFromImage } from "./accent";
+import { applyTheme, resolveTheme } from "./theme";
 
 export type View =
   | { kind: "crate"; path: string; name: string }
@@ -71,22 +72,30 @@ const initialPlayer: PlayerState = {
 };
 
 let coverReq = 0;
+let coverHC: { h: number; c: number } | null = null;
 
-async function loadCover(path: string, accent: boolean) {
+export function refreshTheme() {
+  const c = useStore.getState().config;
+  if (!c) return;
+  applyTheme(resolveTheme(c.theme, c.customTheme, coverHC, c.coverAccent));
+}
+
+async function loadCover(path: string) {
   const req = ++coverReq;
   const url = await api.cover(path).catch(() => null);
   if (req !== coverReq) return;
   useStore.setState({ cover: url });
-  if (!accent) return applyAccent(null);
+  let hc: typeof coverHC = null;
   if (url) {
     try {
-      applyAccent(await accentFromImage(url));
+      hc = await accentFromImage(url);
     } catch {
-      applyAccent(null);
+      hc = null;
     }
-  } else {
-    applyAccent(null);
   }
+  if (req !== coverReq) return;
+  coverHC = hc;
+  refreshTheme();
 }
 
 export const useStore = create<Store>((set, get) => ({
@@ -114,20 +123,18 @@ export const useStore = create<Store>((set, get) => ({
     set({ ready: true });
     const config = await api.getConfig();
     set({ config, player: { ...get().player, volume: config.volume, repeat: config.repeat } });
+    refreshTheme();
 
     await on.config((c) => {
-      const prev = get().config;
       set({ config: c });
-      if (prev && prev.coverAccent !== c.coverAccent && get().track) {
-        loadCover(get().track!.meta.path, c.coverAccent);
-      }
+      refreshTheme();
     });
     await on.state((s) => set({ player: s }));
     await on.track((t) => {
       const prev = get().track;
       set({ track: t, duration: t.meta.duration });
       if (!prev || prev.meta.path !== t.meta.path || prev.meta.hasCover !== t.meta.hasCover) {
-        loadCover(t.meta.path, get().config?.coverAccent ?? true);
+        loadCover(t.meta.path);
       }
       // Keep the visible list in sync with tag edits.
       const list = get().list;
@@ -167,6 +174,7 @@ export const useStore = create<Store>((set, get) => ({
   setConfig: async (patch) => {
     const c = await api.updateConfig(patch);
     set({ config: c });
+    refreshTheme();
   },
 
   refreshCrates: async () => {
