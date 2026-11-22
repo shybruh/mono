@@ -376,6 +376,19 @@ pub fn run() {
             Engine::spawn(handle.clone(), shared, rx, hook_tx, analysis_tx, cfg.rg_mode.clone(), cfg.rg_preamp);
             let _ = tx.send(Cmd::SetRepeat(cfg.repeat));
 
+            // Files passed on the command line ("Open with", drag onto the exe)
+            // start playing straight away.
+            let launch: Vec<String> = std::env::args()
+                .skip(1)
+                .filter(|a| {
+                    let p = Path::new(a);
+                    p.is_file() && meta::is_audio(p)
+                })
+                .collect();
+            if !launch.is_empty() {
+                let _ = tx.send(Cmd::PlayQueue { paths: launch, index: 0 });
+            }
+
             let state = app.state::<AppState>();
             *state.watcher.lock() = library::watch(&handle, &cfg.roots);
             library::spawn_indexer(handle, cfg.roots);
