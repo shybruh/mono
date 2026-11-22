@@ -144,9 +144,9 @@ async fn lyrics(app: AppHandle, path: String) -> Res<lyrics::Found> {
 
 /// Caches (and parses) lyrics the UI fetched from LRCLIB; `raw: null` records a miss.
 #[tauri::command]
-fn store_lyrics(state: State<AppState>, path: String, raw: Option<String>) -> Option<lyrics::Lyrics> {
+fn store_lyrics(state: State<AppState>, path: String, raw: Option<String>, pinned: bool) -> Option<lyrics::Lyrics> {
     let meta = state.meta.get(Path::new(&path));
-    lyrics::store(&meta, &state.data_dir, raw.as_deref())
+    lyrics::store(&meta, &state.data_dir, raw.as_deref(), pinned)
 }
 
 #[derive(serde::Serialize)]
@@ -183,6 +183,15 @@ fn write_tags(state: State<AppState>, path: String, tags: tags::TagEdit) -> Res<
 #[tauri::command]
 fn set_cover(state: State<AppState>, path: String, image: String) -> Res<()> {
     tags::set_cover(Path::new(&path), Path::new(&image)).map_err(err)?;
+    after_tag_write(&state, &path);
+    Ok(())
+}
+
+#[tauri::command]
+fn set_cover_data(state: State<AppState>, path: String, data: String, mime: String) -> Res<()> {
+    use base64::Engine as _;
+    let bytes = base64::engine::general_purpose::STANDARD.decode(data.as_bytes()).map_err(err)?;
+    tags::set_cover_bytes(Path::new(&path), bytes, &mime).map_err(err)?;
     after_tag_write(&state, &path);
     Ok(())
 }
@@ -287,11 +296,13 @@ async fn open_deck(app: AppHandle) -> Res<()> {
     } else {
         WebviewWindowBuilder::new(&app, "deck", WebviewUrl::App("index.html?view=deck".into()))
             .title("mono")
-            // Width is fitted to the enabled meters by the page itself.
-            .inner_size(560.0, 64.0)
+            // The page restores the last size and adjusts width when meters change.
+            .inner_size(620.0, 64.0)
+            .min_inner_size(280.0, 52.0)
+            .max_inner_size(4000.0, 280.0)
             .decorations(false)
             .always_on_top(true)
-            .resizable(false)
+            .resizable(true)
             .shadow(true)
             .build()
             .map_err(err)?;
@@ -388,6 +399,7 @@ pub fn run() {
             save_playlist,
             write_tags,
             set_cover,
+            set_cover_data,
             remove_cover,
             renumber,
             play_queue,

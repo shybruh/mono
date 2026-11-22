@@ -13,15 +13,30 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Text on accent-coloured controls picks black or white for contrast automatically.
 - **Micro-deck sizes itself** to its content: it shrinks when meters are turned off and grows when they are turned on. The title column is fixed-width so the deck doesn't jump between tracks, and the time readout no longer gets truncated by long artist names. The deck's right-click menu now offers *Theme* instead of *Skin*.
 
+- Settings dialog is wider (672 px), with a fixed header and its own scroll area.
+- Scrollbars are thin floating pills that brighten on hover and take the accent colour while dragged.
 - Transport controls are centred under the waveform in a symmetric cluster (A / B · previous / play / next · tempo / repeat), with volume pinned right.
 - Discord Rich Presence uses Mono's built-in Discord application, so users only flip the switch; the Settings field is now an optional override. The activity shows the `mono` art asset when the Discord app has one uploaded.
 
 ### Added
+- **File-name fallback for untagged files**: when a file has no title or artist tag, Mono reads them from the file name (`Artist - Title`, `01 - Artist - Title`, `03. Title`, `07 Title`; en/em dashes and underscores handled; titles like `7 Rings` left intact). This also lets lyrics lookups work for untagged files. Saving in the tag drawer writes the guessed values as real tags.
+- **Online metadata and cover art (iTunes Search API)**, all optional:
+  - *Look up missing album and cover art* (Settings → Modules, off by default): for the playing track, shows iTunes artwork and fills album / year / genre on screen when the file lacks them. The accent colour follows the fetched art. Files are not modified.
+  - Tag drawer **Look up**: lists iTunes matches with artwork, album, year, duration and a confidence dot; picking one fills the form and stages the 1200 px cover, and **Save** writes both into the file.
+  - **Fill missing info online** (track list right-click): for every track in the crate missing album, cover or real tags, writes a confident match, filling only empty fields and embedding artwork where there is none. Paced at one lookup every ~3 s for iTunes' rate limit; progress shows in the list header and clicking it stops the run.
+- **Lyric versions picker** (theater mode, top-right on hover; needs LRCLIB enabled): lists every LRCLIB version of the song with artist, album, length (highlighted when it matches the file) and timed / plain. Picking one pins it for that track, overriding embedded, `.lrc` and cached lyrics.
+- **Lyric timing nudge** (theater mode): shift synced lyrics earlier or later in 0.25 s steps; click the readout to reset. Remembered per track.
+- **Resizable layout**, remembered between launches; double-click any handle to reset:
+  - Sidebar: drag its right edge (160–480 px).
+  - Track list: every column (#, Title, Artist, Album, Gain, Time) has its own width, set by dragging its boundary in the header, which shows faint dividers. Time stays pinned to the right edge with spare space just before it; the list never scrolls sideways — drags are limited to the free room, and Title / Artist / Album shrink toward their minimums when the window narrows. Header and rows stay aligned regardless of the scrollbar.
+  - Visualiser panel: drag its top edge (90 px up to 65% of the window height).
+- **Resizable micro-deck**: drag any edge (up to 280 px tall). Cover art, buttons, text and meters scale with the window height, and the spectrum, scope and title share extra width. The size is remembered; toggling a meter still grows or shrinks the window by that meter's width.
 - **Seek control setting** (Settings → Seek): choose the waveform or a plain thin bar. Both support click and drag scrubbing, hover preview, the time tooltip and the A–B loop band; the bar skips waveform decoding entirely.
 - **Theater mode** (`F`, the microphone button, or click the cover art; `Esc` to leave): large cover art over a blurred, tinted backdrop of the same art, with title, artist and album.
 - **Lyrics** in theater mode. Sources, in order: a sidecar `.lrc` next to the file, lyrics embedded in the tags, then [LRCLIB](https://lrclib.net) when *Download lyrics from LRCLIB* is enabled (off by default). Synced lyrics highlight the current line, auto-centre it (pausing for a few seconds after you scroll), and seek when a line is clicked; plain lyrics show as scrollable text. LRCLIB results and misses are cached in the app data folder so each track is looked up once; nothing is written into the music library.
 
 ### Fixed
+- Synced lyrics could come from a different cut of a song (e.g. the original instead of a remix), so the words were right but the timing ran early or late. Timed lyrics from LRCLIB are now only used automatically when that version's length is within 2 s of the file; otherwise the words are shown untimed. Lyrics cached under the old rules are looked up again.
 - Visualiser could stay blank (all readouts at −∞) while audio played. Meter on/off requests from the UI could arrive at the engine out of order, leaving analysis switched off. Requests are now coalesced and sequence-numbered per window, stale ones are ignored, the UI re-asserts its state every few seconds, and closed windows release their claim automatically.
 - Micro-deck right-click menu was clipped by the 64 px window; it is now a native menu (Skin and Meters submenus, Back to main window) that can extend past the deck.
 

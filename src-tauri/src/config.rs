@@ -24,6 +24,8 @@ pub struct Config {
     pub viz_meters: Vec<String>,
     pub cover_accent: bool,
     pub lyrics_online: bool,
+    /// Look up missing album / cover art on iTunes for the playing track.
+    pub meta_online: bool,
     /// "waveform" or "bar".
     pub seek_style: String,
 }
@@ -46,6 +48,7 @@ impl Default for Config {
             viz_meters: vec!["spectrum".into(), "scope".into(), "peak".into(), "lufs".into()],
             cover_accent: true,
             lyrics_online: false,
+            meta_online: false,
             seek_style: "waveform".into(),
         }
     }

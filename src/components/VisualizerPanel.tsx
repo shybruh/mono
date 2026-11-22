@@ -1,4 +1,5 @@
 import { useStore } from "@/lib/store";
+import { ResizeHandle, startDrag, useSizes } from "@/hooks/useDragSize";
 import { PeakMeter, Scope, Spectrum, fmtDb, useReadout } from "./meters/Meters";
 
 function Readout({ label, value, unit }: { label: string; value: number | null; unit: string }) {
@@ -27,9 +28,25 @@ function Readouts() {
 
 export function VisualizerPanel() {
   const open = useStore((s) => s.config?.vizOpen ?? false);
+  const [size, setSize] = useSizes("mono.layout.viz", { height: 160 });
   if (!open) return null;
   return (
-    <div className="flex h-40 shrink-0 gap-4 border-t px-4 py-3 animate-in fade-in slide-in-from-bottom-2 duration-200">
+    <div
+      className="relative flex shrink-0 gap-4 border-t px-4 py-3 animate-in fade-in slide-in-from-bottom-2 duration-200"
+      style={{ height: size.height }}
+    >
+      <ResizeHandle
+        side="top"
+        onPointerDown={(e) =>
+          startDrag(e, size.height, (v) => setSize("height", v), {
+            min: 90,
+            max: Math.max(160, Math.round(window.innerHeight * 0.65)),
+            invert: true,
+            axis: "y",
+          })
+        }
+        onDoubleClick={() => setSize("height", 160)}
+      />
       <div className="relative min-w-0 flex-[3]">
         <Spectrum grid className="h-full w-full" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-between font-mono text-[10px] text-muted-foreground/50">

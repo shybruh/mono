@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { fillMissing, needsInfo, useFill } from "@/lib/fill";
 import { save } from "@tauri-apps/plugin-dialog";
 import { api, type TrackMeta } from "@/lib/api";
 import { useStore } from "@/lib/store";
@@ -10,9 +11,21 @@ import {
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
 import { cn, fmtTime } from "@/lib/utils";
+import { ResizeHandle, startDrag, useSizes } from "@/hooks/useDragSize";
 
 const ROW = 28;
-const COLS = "grid-cols-[44px_minmax(0,2.2fr)_minmax(0,1.3fr)_minmax(0,1.3fr)_72px_56px]";
+const DEFAULT_COLS = { num: 44, title: 340, artist: 200, album: 200, gain: 76, time: 60 };
+const LIMITS: Record<keyof typeof DEFAULT_COLS, [number, number]> = {
+  num: [28, 90],
+  title: [120, 1200],
+  artist: [60, 800],
+  album: [60, 800],
+  gain: [48, 160],
+  time: [44, 160],
+};
+// Header padding: px-3 + 2 px row accent border + the list's 12 px scrollbar gutter.
+const PAD = 12 + 2 + 12 + 12;
+type Col = keyof typeof DEFAULT_COLS;
 
 function gainOf(m: TrackMeta, mode: string) {
   const g = mode === "album" ? (m.rgAlbumGain ?? m.rgTrackGain) : (m.rgTrackGain ?? m.rgAlbumGain);
@@ -28,6 +41,44 @@ export function TrackList() {
   const isPlaying = useStore((s) => s.player.playing);
   const rgMode = useStore((s) => s.config?.rgMode ?? "track");
   const view = useStore((s) => s.view);
+  const fill = useFill();
+  const missing = useMemo(() => list.filter(needsInfo).length, [list]);
+  const [cols, setCol, resetCols] = useSizes("mono.layout.columns", DEFAULT_COLS);
+  const header = useRef<HTMLDivElement>(null);
+  // Columns never overflow: Time is pinned to the right edge, spare space sits
+  // just before it, and Title / Artist / Album shrink toward their minimums
+  // when the window is too narrow (grid minmax tracks).
+  const template = {
+    gridTemplateColumns: [
+      `${cols.num}px`,
+      `minmax(${LIMITS.title[0]}px,${cols.title}px)`,
+      `minmax(${LIMITS.artist[0]}px,${cols.artist}px)`,
+      `minmax(${LIMITS.album[0]}px,${cols.album}px)`,
+      `${cols.gain}px`,
+      "minmax(0,1fr)",
+      `${cols.time}px`,
+    ].join(" "),
+  };
+  // A drag can only use the room that is actually free in the row.
+  const handle = (name: Col, side: "left" | "right" = "right") => (
+    <ResizeHandle
+      visible
+      side={side}
+      onPointerDown={(e) => {
+        const inner = (header.current?.clientWidth ?? 0) - PAD;
+        const others = (Object.keys(cols) as Col[])
+          .filter((k) => k !== name)
+          .reduce((sum, k) => sum + cols[k], 0);
+        const max = Math.max(LIMITS[name][0], Math.min(LIMITS[name][1], inner - others));
+        startDrag(e, Math.min(cols[name], max), (v) => setCol(name, v), {
+          min: LIMITS[name][0],
+          max,
+          invert: side === "left",
+        });
+      }}
+      onDoubleClick={resetCols}
+    />
+  );
 
   const scroller = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
@@ -69,18 +120,35 @@ export function TrackList() {
   };
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className={cn("grid shrink-0 px-3 py-1.5 font-mono text-[11px] text-muted-foreground/60", COLS)}>
-        <span>#</span>
-        <span>Title</span>
-        <span>Artist</span>
-        <span>Album</span>
-        <span>Gain</span>
-        <span className="text-right">Time</span>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <div
+        ref={header}
+        className="grid shrink-0 border-l-2 border-transparent py-1.5 pr-6 pl-3 font-mono text-[11px] text-muted-foreground/60 select-none"
+        style={template}
+      >
+        <span className="relative">#{handle("num")}</span>
+        <span className="relative">Title{handle("title")}</span>
+        <span className="relative pl-2">Artist{handle("artist")}</span>
+        <span className="relative pl-2">Album{handle("album")}</span>
+        <span className="relative pl-2">Gain{handle("gain")}</span>
+        {fill.running && (
+          <button
+            title="Stop"
+            onClick={fill.cancel}
+            className="col-start-6 flex items-center gap-1.5 justify-self-end pr-3 text-brand hover:text-foreground"
+          >
+            <span className="size-1.5 animate-pulse rounded-full bg-current" />
+            {fill.done}/{fill.total}
+          </button>
+        )}
+        <span className="relative col-start-7 pr-2 text-right">
+          {handle("time", "left")}
+          Time
+        </span>
       </div>
       <div
         ref={scroller}
-        className="min-h-0 flex-1 overflow-y-auto"
+        className="min-h-0 flex-1 overflow-x-hidden overflow-y-auto [scrollbar-gutter:stable]"
         onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
       >
         {!loading && list.length > 0 && (
@@ -96,12 +164,11 @@ export function TrackList() {
                       onDoubleClick={() => useStore.getState().playFromList(i)}
                       className={cn(
                         "absolute inset-x-0 grid cursor-default items-center border-l-2 border-transparent px-3 font-mono text-[12px]",
-                        COLS,
                         i === selected && !playing && "bg-accent/70",
                         playing && "border-brand bg-brand-wash text-brand",
                         !playing && "text-muted-foreground",
                       )}
-                      style={{ top: i * ROW, height: ROW }}
+                      style={{ ...template, top: i * ROW, height: ROW }}
                     >
                       <span className="tabular-nums">
                         {playing && isPlaying ? (
@@ -115,10 +182,10 @@ export function TrackList() {
                         )}
                       </span>
                       <span className={cn("truncate pr-3", !playing && "text-foreground")}>{m.title}</span>
-                      <span className="truncate pr-3">{m.artist ?? ""}</span>
-                      <span className="truncate pr-3">{m.album ?? ""}</span>
-                      <span className="tabular-nums">{gainOf(m, rgMode)}</span>
-                      <span className="text-right tabular-nums">{fmtTime(m.duration)}</span>
+                      <span className="truncate pr-3 pl-2">{m.artist ?? ""}</span>
+                      <span className="truncate pr-3 pl-2">{m.album ?? ""}</span>
+                      <span className="truncate pl-2 tabular-nums">{gainOf(m, rgMode)}</span>
+                      <span className="col-start-7 pr-2 text-right tabular-nums">{fmtTime(m.duration)}</span>
                     </div>
                   </ContextMenuTrigger>
                   <ContextMenuContent>
@@ -136,6 +203,13 @@ export function TrackList() {
                       </ContextMenuItem>
                     )}
                     <ContextMenuItem onSelect={saveAsPlaylist}>Save crate as playlist</ContextMenuItem>
+                    <ContextMenuSeparator />
+                    <ContextMenuItem
+                      disabled={fill.running || missing === 0}
+                      onSelect={() => fillMissing(list)}
+                    >
+                      Fill missing info online{missing ? ` (${missing})` : ""}
+                    </ContextMenuItem>
                   </ContextMenuContent>
                 </ContextMenu>
               );

@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, type Lyrics } from "@/lib/api";
 import { useStore } from "@/lib/store";
-import { loadLyrics } from "@/lib/lrclib";
+import { chooseVersion, getOffset, loadLyrics, setOffset, versions, type Version } from "@/lib/lrclib";
+import { ListMusic, Loader2, Minus, Plus } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
 /** Index of the last synced line at or before `t`. */
@@ -19,13 +21,14 @@ function activeLine(lyrics: Lyrics, t: number): number {
   return ans;
 }
 
-function LyricsPane({ lyrics }: { lyrics: Lyrics }) {
+function LyricsPane({ lyrics, offset }: { lyrics: Lyrics; offset: number }) {
   const pos = useStore((s) => s.pos);
   const scroller = useRef<HTMLDivElement>(null);
   const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
   const userScrollAt = useRef(0);
   // Lead slightly so the highlight lands with the vocal, not after it.
-  const idx = lyrics.synced ? activeLine(lyrics, pos + 0.25) : -1;
+  // Positive offset = lyrics later.
+  const idx = lyrics.synced ? activeLine(lyrics, pos + 0.25 - offset) : -1;
 
   useEffect(() => {
     if (!lyrics.synced || idx < 0) return;
@@ -64,7 +67,7 @@ function LyricsPane({ lyrics }: { lyrics: Lyrics }) {
               ref={(el) => {
                 lineRefs.current[i] = el;
               }}
-              onClick={() => l.time != null && api.seek(l.time)}
+              onClick={() => l.time != null && api.seek(Math.max(0, l.time + offset))}
               className={cn(
                 "origin-left cursor-pointer py-1.5 text-[clamp(20px,2.3vw,32px)] leading-snug font-semibold tracking-tight transition-[color,opacity,transform] duration-300",
                 state === "now" && "scale-[1.02] text-foreground",
@@ -81,12 +84,84 @@ function LyricsPane({ lyrics }: { lyrics: Lyrics }) {
   );
 }
 
+function fmtDur(s: number) {
+  return `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, "0")}`;
+}
+
+function VersionsPicker({ onPick }: { onPick: (l: Lyrics | null) => void }) {
+  const track = useStore((s) => s.track);
+  const [open, setOpen] = useState(false);
+  const [list, setList] = useState<Version[] | null>(null);
+  const m = track?.meta;
+
+  useEffect(() => {
+    if (!open || !m) return;
+    setList(null);
+    versions(m.artist ?? "", m.title, m.duration)
+      .then(setList)
+      .catch(() => setList([]));
+  }, [open, m?.path]);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button className={ctl} title="Lyric versions">
+          <ListMusic />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="max-h-[60vh] w-[420px] overflow-y-auto p-1">
+        {!list && (
+          <div className="flex items-center gap-2 px-3 py-3 text-[12px] text-muted-foreground">
+            <Loader2 className="size-3.5 animate-spin" /> Searching LRCLIB
+          </div>
+        )}
+        {list && list.length === 0 && <div className="px-3 py-3 text-[12px] text-muted-foreground">No versions</div>}
+        {list?.map((v) => (
+          <button
+            key={v.id}
+            onClick={async () => {
+              setOpen(false);
+              if (m) onPick(await chooseVersion(m.path, v));
+            }}
+            className="flex w-full items-center gap-3 rounded-md px-2.5 py-2 text-left hover:bg-accent"
+          >
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[12px] text-foreground">{v.artist}</span>
+              <span className="block truncate text-[11px] text-muted-foreground">{v.album || v.title}</span>
+            </span>
+            <span className="shrink-0 text-right font-mono text-[11px] leading-tight tabular-nums">
+              <span className={cn(v.diff <= 2 ? "text-brand" : "text-muted-foreground")}>{fmtDur(v.duration)}</span>
+              <br />
+              <span className="text-muted-foreground/70">{v.synced ? "timed" : "plain"}</span>
+            </span>
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+const ctl =
+  "flex h-7 min-w-7 items-center justify-center rounded-md px-1.5 font-mono text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground [&_svg]:size-3.5";
+
 export function Theater() {
   const track = useStore((s) => s.track);
   const cover = useStore((s) => s.cover);
   const online = useStore((s) => s.config?.lyricsOnline ?? false);
   const [lyrics, setLyrics] = useState<Lyrics | null>(null);
   const path = track?.meta.path;
+  const [offset, setOffsetState] = useState(0);
+
+  useEffect(() => {
+    setOffsetState(path ? getOffset(path) : 0);
+  }, [path]);
+
+  const nudge = (v: number) => {
+    if (!path) return;
+    const next = Math.round(v * 100) / 100;
+    setOffset(path, next);
+    setOffsetState(next);
+  };
 
   useEffect(() => {
     setLyrics(null);
@@ -108,7 +183,7 @@ export function Theater() {
   const hasLyrics = !!lyrics && lyrics.lines.length > 0;
 
   return (
-    <div className="relative flex min-h-0 flex-1 overflow-hidden animate-in fade-in duration-300">
+    <div className="group/theater relative flex min-h-0 flex-1 overflow-hidden animate-in fade-in duration-300">
       {cover && (
         <img
           src={cover}
@@ -145,9 +220,27 @@ export function Theater() {
         </div>
         {hasLyrics && (
           <div className="h-full min-w-0 flex-1">
-            <LyricsPane lyrics={lyrics!} />
+            <LyricsPane lyrics={lyrics!} offset={offset} />
           </div>
         )}
+      </div>
+
+      <div className="absolute top-3 right-4 flex items-center gap-0.5 rounded-lg bg-background/60 p-0.5 opacity-0 backdrop-blur transition-opacity group-hover/theater:opacity-100 focus-within:opacity-100">
+        {hasLyrics && lyrics!.synced && (
+          <>
+            <button className={ctl} title="Lyrics earlier" onClick={() => nudge(offset - 0.25)}>
+              <Minus />
+            </button>
+            <button className={cn(ctl, "w-14 tabular-nums")} title="Reset timing" onClick={() => nudge(0)}>
+              {offset > 0 ? "+" : offset < 0 ? "−" : "±"}
+              {Math.abs(offset).toFixed(2)}s
+            </button>
+            <button className={ctl} title="Lyrics later" onClick={() => nudge(offset + 0.25)}>
+              <Plus />
+            </button>
+          </>
+        )}
+        {online && m && <VersionsPicker onPick={setLyrics} />}
       </div>
     </div>
   );

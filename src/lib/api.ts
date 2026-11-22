@@ -25,6 +25,7 @@ export interface TrackMeta {
   rgAlbumGain?: number | null;
   rgAlbumPeak?: number | null;
   hasCover: boolean;
+  inferred: boolean;
 }
 
 export interface CrateNode {
@@ -58,6 +59,7 @@ export interface Config {
   vizMeters: string[];
   coverAccent: boolean;
   lyricsOnline: boolean;
+  metaOnline: boolean;
   seekStyle: "waveform" | "bar";
 }
 
@@ -140,12 +142,15 @@ export const api = {
   waveform: (path: string, buckets: number) => invoke<number[]>("waveform", { path, buckets }),
   cover: (path: string) => invoke<string | null>("cover", { path }),
   lyrics: (path: string) => invoke<LyricsFound>("lyrics", { path }),
-  storeLyrics: (path: string, raw: string | null) => invoke<Lyrics | null>("store_lyrics", { path, raw }),
+  storeLyrics: (path: string, raw: string | null, pinned: boolean) =>
+    invoke<Lyrics | null>("store_lyrics", { path, raw, pinned }),
   appInfo: () => invoke<AppInfo>("app_info"),
   savePlaylist: (path: string, tracks: string[]) => invoke<void>("save_playlist", { path, tracks }),
 
   writeTags: (path: string, tags: TagEdit) => invoke<TrackMeta>("write_tags", { path, tags }),
   setCover: (path: string, image: string) => invoke<void>("set_cover", { path, image }),
+  setCoverData: (path: string, data: string, mime: string) =>
+    invoke<void>("set_cover_data", { path, data, mime }),
   removeCover: (path: string) => invoke<void>("remove_cover", { path }),
   renumber: (paths: string[]) => invoke<void>("renumber", { paths }),
 

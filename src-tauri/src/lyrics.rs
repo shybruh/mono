@@ -104,13 +104,24 @@ fn embedded(path: &Path) -> Option<Lyrics> {
     parse(text, "embedded")
 }
 
-fn cache_file(dir: &Path, meta: &TrackMeta) -> PathBuf {
+fn key(meta: &TrackMeta) -> u64 {
     let mut h = DefaultHasher::new();
     meta.artist.hash(&mut h);
     meta.title.hash(&mut h);
     meta.album.hash(&mut h);
     (meta.duration.round() as i64).hash(&mut h);
-    dir.join("lyrics").join(format!("{:016x}.json", h.finish()))
+    h.finish()
+}
+
+/// Automatic lookup result. The version prefix invalidates entries made by
+/// older matching rules.
+fn cache_file(dir: &Path, meta: &TrackMeta) -> PathBuf {
+    dir.join("lyrics").join(format!("v2-{:016x}.json", key(meta)))
+}
+
+/// A version the user picked by hand; wins over every other source.
+fn pinned_file(dir: &Path, meta: &TrackMeta) -> PathBuf {
+    dir.join("lyrics").join(format!("pin-{:016x}.json", key(meta)))
 }
 
 /// What the UI needs to look a track up on LRCLIB itself.
@@ -131,6 +142,11 @@ pub struct Found {
 }
 
 pub fn find(meta: &TrackMeta, data_dir: &Path, online: bool) -> Found {
+    if let Ok(bytes) = std::fs::read(pinned_file(data_dir, meta)) {
+        if let Ok(Some(l)) = serde_json::from_slice::<Option<Lyrics>>(&bytes) {
+            return Found { lyrics: Some(l), lookup: None };
+        }
+    }
     let path = Path::new(&meta.path);
     if let Some(l) = sidecar(path).or_else(|| embedded(path)) {
         return Found { lyrics: Some(l), lookup: None };
@@ -158,10 +174,11 @@ pub fn find(meta: &TrackMeta, data_dir: &Path, online: bool) -> Found {
     }
 }
 
-/// Stores the result of an online lookup (raw LRC or plain text, or a miss).
-pub fn store(meta: &TrackMeta, data_dir: &Path, raw: Option<&str>) -> Option<Lyrics> {
+/// Stores an online result (raw LRC or plain text, or a miss). `pinned`
+/// records an explicit user choice that overrides local and cached lyrics.
+pub fn store(meta: &TrackMeta, data_dir: &Path, raw: Option<&str>, pinned: bool) -> Option<Lyrics> {
     let parsed = raw.filter(|r| !r.trim().is_empty()).and_then(|r| parse(r, "lrclib"));
-    let cache = cache_file(data_dir, meta);
+    let cache = if pinned { pinned_file(data_dir, meta) } else { cache_file(data_dir, meta) };
     if let Some(dir) = cache.parent() {
         let _ = std::fs::create_dir_all(dir);
     }

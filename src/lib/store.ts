@@ -11,6 +11,7 @@ import {
 } from "./api";
 import { accentFromImage } from "./accent";
 import { applyTheme, resolveTheme } from "./theme";
+import { best } from "./itunes";
 
 export type View =
   | { kind: "crate"; path: string; name: string }
@@ -82,11 +83,44 @@ export function refreshTheme() {
   applyTheme(resolveTheme(c.theme, c.customTheme, coverHC, c.coverAccent));
 }
 
-async function loadCover(path: string) {
+/**
+ * Display-only enrichment from iTunes when the file lacks album info or
+ * cover art. Nothing is written to the file; the tag drawer does that.
+ */
+async function enrich(meta: TrackMeta, req: number): Promise<string | null> {
+  if (!useStore.getState().config?.metaOnline) return null;
+  if (meta.hasCover && meta.album) return null;
+  const m = await best(meta).catch(() => null);
+  if (!m || req !== coverReq) return null;
+  const t = useStore.getState().track;
+  if (t && t.meta.path === meta.path) {
+    useStore.setState({
+      track: {
+        ...t,
+        meta: {
+          ...t.meta,
+          album: t.meta.album || m.album,
+          year: t.meta.year ?? m.year,
+          genre: t.meta.genre || m.genre,
+        },
+      },
+    });
+  }
+  return meta.hasCover ? null : m.artwork;
+}
+
+async function loadCover(meta: TrackMeta) {
+  const path = meta.path;
   const req = ++coverReq;
-  const url = await api.cover(path).catch(() => null);
+  let url = await api.cover(path).catch(() => null);
   if (req !== coverReq) return;
   useStore.setState({ cover: url });
+  const online = await enrich(meta, req);
+  if (req !== coverReq) return;
+  if (!url && online) {
+    url = online;
+    useStore.setState({ cover: url });
+  }
   let hc: typeof coverHC = null;
   if (url) {
     try {
@@ -130,15 +164,18 @@ export const useStore = create<Store>((set, get) => ({
     refreshTheme();
 
     await on.config((c) => {
+      const prev = get().config;
       set({ config: c });
       refreshTheme();
+      const t = get().track;
+      if (t && prev && prev.metaOnline !== c.metaOnline) loadCover(t.meta);
     });
     await on.state((s) => set({ player: s }));
     await on.track((t) => {
       const prev = get().track;
       set({ track: t, duration: t.meta.duration });
       if (!prev || prev.meta.path !== t.meta.path || prev.meta.hasCover !== t.meta.hasCover) {
-        loadCover(t.meta.path);
+        loadCover(t.meta);
       }
       // Keep the visible list in sync with tag edits.
       const list = get().list;

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/context-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { ResizeHandle, startDrag, useSizes } from "@/hooks/useDragSize";
 
 export async function addFolder() {
   const dir = await open({ directory: true, multiple: false });
@@ -102,9 +103,16 @@ export function Sidebar() {
   const crates = useStore((s) => s.crates);
   const current = useStore((s) => viewKey(s.view));
   const historyOn = useStore((s) => s.config?.history ?? true);
+  const [sizes, setSize] = useSizes("mono.layout.sidebar", { sidebar: 224 });
 
   return (
-    <aside className="flex w-56 shrink-0 flex-col border-r">
+    <aside className="relative flex shrink-0 flex-col border-r" style={{ width: sizes.sidebar }}>
+      <ResizeHandle
+        onPointerDown={(e) =>
+          startDrag(e, sizes.sidebar, (v) => setSize("sidebar", v), { min: 160, max: 480 })
+        }
+        onDoubleClick={() => setSize("sidebar", 224)}
+      />
       <ScrollArea className="min-h-0 flex-1">
         <div className="p-2">
           <div className="flex h-7 items-center justify-between px-1.5 text-[11px] text-muted-foreground/70">

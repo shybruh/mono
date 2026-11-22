@@ -101,6 +101,23 @@ pub fn set_cover(path: &Path, image: &Path) -> Result<()> {
     })
 }
 
+/// Embeds cover art supplied as bytes (e.g. downloaded by the UI).
+pub fn set_cover_bytes(path: &Path, data: Vec<u8>, mime: &str) -> Result<()> {
+    if data.is_empty() {
+        return Err(anyhow!("empty image"));
+    }
+    let mime = match mime {
+        "image/png" => MimeType::Png,
+        "image/gif" => MimeType::Gif,
+        "image/bmp" => MimeType::Bmp,
+        _ => MimeType::Jpeg,
+    };
+    with_tag(path, |tag| {
+        tag.remove_picture_type(PictureType::CoverFront);
+        tag.push_picture(Picture::new_unchecked(PictureType::CoverFront, Some(mime), None, data));
+    })
+}
+
 pub fn remove_cover(path: &Path) -> Result<()> {
     with_tag(path, |tag| {
         while !tag.pictures().is_empty() {

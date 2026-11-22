@@ -22,6 +22,8 @@ function toOklch(r: number, g: number, b: number) {
 
 export async function accentFromImage(src: string): Promise<{ h: number; c: number }> {
   const img = new Image();
+  // Remote artwork (iTunes) is CORS-enabled; this keeps the canvas readable.
+  img.crossOrigin = "anonymous";
   img.src = src;
   await img.decode();
   const size = 40;

@@ -53,13 +53,13 @@ export function SettingsDialog() {
 
   return (
     <Dialog open={open} onOpenChange={(v) => useStore.getState().setSettings(v)}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
+        <DialogHeader className="px-6 pt-6 pb-4">
           <DialogTitle className="text-sm font-medium">Settings</DialogTitle>
           <DialogDescription className="sr-only">Mono preferences</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5">
+        <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 pb-6 [scrollbar-gutter:stable]">
           <Section title="Watched folders">
             <div className="space-y-1">
               {config.roots.map((r) => (
@@ -154,6 +154,9 @@ export function SettingsDialog() {
           <Section title="Modules">
             <Row label="Listening history">
               <Switch checked={config.history} onCheckedChange={(v) => setConfig({ history: v })} />
+            </Row>
+            <Row label="Look up missing album and cover art (iTunes)">
+              <Switch checked={config.metaOnline} onCheckedChange={(v) => setConfig({ metaOnline: v })} />
             </Row>
             <Row label="Download lyrics from LRCLIB">
               <Switch checked={config.lyricsOnline} onCheckedChange={(v) => setConfig({ lyricsOnline: v })} />

@@ -43,6 +43,8 @@ pub struct TrackMeta {
     pub rg_album_gain: Option<f32>,
     pub rg_album_peak: Option<f32>,
     pub has_cover: bool,
+    /// Title / artist / track number were guessed from the file name.
+    pub inferred: bool,
 }
 
 fn parse_gain(s: &str) -> Option<f32> {
@@ -58,6 +60,46 @@ fn stem(path: &Path) -> String {
     path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default()
 }
 
+#[derive(Debug, PartialEq, Default)]
+pub struct FromName {
+    pub track: Option<u32>,
+    pub artist: Option<String>,
+    pub title: String,
+}
+
+/// Guesses track number, artist and title from names like
+/// "01 - Artist - Title", "03. Title", "07 Title", "Artist – Title".
+pub fn parse_filename(stem: &str) -> FromName {
+    let mut rest = stem.trim().replace('_', " ");
+    let mut track = None;
+
+    let digits: String = rest.chars().take_while(|c| c.is_ascii_digit()).collect();
+    if (1..=3).contains(&digits.len()) {
+        let after = rest[digits.len()..].to_owned();
+        let body = after.trim_start_matches([' ', '.', '-', ')', '\u{2013}']).to_owned();
+        let sep = &after[..after.len() - body.len()];
+        // "01 - x", "3. x", "1) x" always; "07 x" only when zero-padded,
+        // so titles like "7 Rings" survive.
+        let punct = sep.chars().any(|c| c != ' ');
+        let padded = digits.len() >= 2 && digits.starts_with('0');
+        if !body.is_empty() && !sep.is_empty() && (punct || padded) {
+            track = digits.parse().ok();
+            rest = body;
+        }
+    }
+
+    for dash in [" - ", " \u{2013} ", " \u{2014} "] {
+        if let Some(i) = rest.find(dash) {
+            let artist = rest[..i].trim();
+            let title = rest[i + dash.len()..].trim();
+            if !artist.is_empty() && !title.is_empty() {
+                return FromName { track, artist: Some(artist.to_owned()), title: title.to_owned() };
+            }
+        }
+    }
+    FromName { track, artist: None, title: rest.trim().to_owned() }
+}
+
 pub fn read_uncached(path: &Path) -> TrackMeta {
     let format = path
         .extension()
@@ -65,11 +107,14 @@ pub fn read_uncached(path: &Path) -> TrackMeta {
         .unwrap_or_default();
     let mut meta = TrackMeta {
         path: path.to_string_lossy().into_owned(),
-        title: stem(path),
+        title: String::new(),
         format,
         ..Default::default()
     };
-    let Ok(file) = lofty::read_from_path(path) else { return meta };
+    let Ok(file) = lofty::read_from_path(path) else {
+        fill_from_name(&mut meta, path);
+        return meta;
+    };
     let props = file.properties();
     meta.duration = props.duration().as_secs_f64();
     meta.bitrate = props.audio_bitrate().or(props.overall_bitrate());
@@ -95,7 +140,51 @@ pub fn read_uncached(path: &Path) -> TrackMeta {
         meta.rg_album_peak = tag.get_string(&ItemKey::ReplayGainAlbumPeak).and_then(parse_peak);
         meta.has_cover = !tag.pictures().is_empty();
     }
+    fill_from_name(&mut meta, path);
     meta
+}
+
+/// Fills title / artist / track number the tags didn't provide.
+fn fill_from_name(meta: &mut TrackMeta, path: &Path) {
+    let has_artist = meta.artist.as_deref().map(|a| !a.trim().is_empty()).unwrap_or(false);
+    if !meta.title.trim().is_empty() && has_artist {
+        return;
+    }
+    let guess = parse_filename(&stem(path));
+    if meta.title.trim().is_empty() {
+        meta.title = if guess.title.is_empty() { stem(path) } else { guess.title };
+        meta.inferred = true;
+    }
+    if !has_artist {
+        if let Some(a) = guess.artist {
+            meta.artist = Some(a);
+            meta.inferred = true;
+        }
+    }
+    if meta.track.is_none() && guess.track.is_some() {
+        meta.track = guess.track;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{parse_filename, FromName};
+
+    fn f(track: Option<u32>, artist: Option<&str>, title: &str) -> FromName {
+        FromName { track, artist: artist.map(str::to_owned), title: title.to_owned() }
+    }
+
+    #[test]
+    fn filenames() {
+        assert_eq!(parse_filename("alesso - take my breath away"), f(None, Some("alesso"), "take my breath away"));
+        assert_eq!(parse_filename("01 - Daft Punk - One More Time"), f(Some(1), Some("Daft Punk"), "One More Time"));
+        assert_eq!(parse_filename("03. Intro"), f(Some(3), None, "Intro"));
+        assert_eq!(parse_filename("07 Closer"), f(Some(7), None, "Closer"));
+        assert_eq!(parse_filename("Artist \u{2013} Song (Extended Mix)"), f(None, Some("Artist"), "Song (Extended Mix)"));
+        assert_eq!(parse_filename("2049"), f(None, None, "2049"));
+        assert_eq!(parse_filename("7 Rings"), f(None, None, "7 Rings"));
+        assert_eq!(parse_filename("Some_Artist - Some_Song"), f(None, Some("Some Artist"), "Some Song"));
+    }
 }
 
 #[derive(Default)]
