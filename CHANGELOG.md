@@ -5,9 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-### Documentation
-- Shorter README: features as a single list, screenshots in a grid, a compact benchmark table and shortcuts on one line.
-- Added an AI disclosure and the license to the README.
+## [0.4.0] - 2026-11-22
+
+Mono grows from a player into a small music workstation: a queue, smart crates, BPM and key detection, a parametric equaliser and a few more ways to see your music.
 
 ### Added
 - **Queue**: *Play next* and *Add to queue* from the track list's right-click menu, an **Up next** panel (`Q`) to reorder by dragging, remove or jump to tracks, and **Shuffle** (`S`), which shuffles what's left and restores the original order when turned off.
@@ -33,6 +33,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 - **Discord status sometimes stuck on an old song.** Discord replies to every status update; those replies were never read, so they piled up until Discord stopped accepting updates. Updates could also be dropped after a failed attempt, when skipping quickly hit Discord's rate limit, or when a title or artist was a single character. The status now always converges on the current song: replies are read, updates are paced to stay within Discord's limit with the newest state always sent, and anything that fails is retried after reconnecting.
+
+### Documentation
+- Shorter README: features as a single list, screenshots in a grid, a compact benchmark table and shortcuts on one line.
+- Added an AI disclosure and the license to the README.
 
 ## [0.3.0] - 2026-11-22
 
