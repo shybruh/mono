@@ -1,0 +1,170 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Mono is dark-first. The accent is driven at runtime from the current
+ * track's cover art (see src/lib/accent.ts) and falls back to violet.
+ */
+:root {
+  --radius: 0.5rem;
+
+  --accent-h: 263;
+  --accent-c: 0.17;
+  --brand: oklch(0.72 var(--accent-c) var(--accent-h));
+  --brand-strong: oklch(0.8 var(--accent-c) var(--accent-h));
+  --brand-foreground: oklch(0.2 0.06 var(--accent-h));
+  --brand-muted: oklch(0.28 calc(var(--accent-c) * 0.6) var(--accent-h));
+  --brand-muted-foreground: oklch(0.9 0.05 var(--accent-h));
+  --brand-wash: oklch(0.2 calc(var(--accent-c) * 0.35) var(--accent-h));
+
+  --background: oklch(0.141 0.005 285.823);
+  --foreground: oklch(0.92 0.004 286.32);
+  --card: oklch(0.17 0.005 285.823);
+  --card-foreground: oklch(0.92 0.004 286.32);
+  --popover: oklch(0.17 0.005 285.823);
+  --popover-foreground: oklch(0.92 0.004 286.32);
+  --primary: oklch(0.92 0.004 286.32);
+  --primary-foreground: oklch(0.21 0.006 285.885);
+  --secondary: oklch(0.21 0.006 285.885);
+  --secondary-foreground: oklch(0.92 0.004 286.32);
+  --muted: oklch(0.21 0.006 285.885);
+  --muted-foreground: oklch(0.6 0.016 286);
+  --accent: oklch(0.21 0.006 285.885);
+  --accent-foreground: oklch(0.92 0.004 286.32);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(0.27 0.006 286);
+  --input: oklch(0.3 0.006 286);
+  --ring: var(--brand);
+
+  --font-sans: "Inter", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Mono", "Consolas", ui-monospace, monospace;
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-muted: var(--brand-muted);
+  --color-brand-muted-foreground: var(--brand-muted-foreground);
+  --color-brand-wash: var(--brand-wash);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    @apply bg-background text-foreground antialiased select-none overflow-hidden;
+    font-size: 13px;
+  }
+  :root {
+    transition:
+      --accent-h 400ms ease,
+      --accent-c 400ms ease;
+  }
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+/* Micro-deck skins. Meters inside the deck read --meter-* from here. */
+:root {
+  --deck-bg: #09090b;
+  --deck-fg: #e4e4e7;
+  --deck-mut: #71717a;
+  --deck-track: #1c1c1f;
+  --deck-acc: #fafafa;
+  --deck-font: var(--font-sans);
+}
+:root[data-skin="cover"] {
+  --deck-bg: oklch(0.16 0.035 var(--accent-h));
+  --deck-fg: oklch(0.94 0.03 var(--accent-h));
+  --deck-mut: oklch(0.62 0.07 var(--accent-h));
+  --deck-track: oklch(0.25 0.05 var(--accent-h));
+  --deck-acc: var(--brand);
+}
+:root[data-skin="phosphor"] {
+  --deck-bg: #030a05;
+  --deck-fg: #86efac;
+  --deck-mut: #2f6b45;
+  --deck-track: #0c2414;
+  --deck-acc: #4ade80;
+  --deck-font: var(--font-mono);
+}
+:root[data-skin="amber"] {
+  --deck-bg: #0c0a07;
+  --deck-fg: #fcd34d;
+  --deck-mut: #7c5d1a;
+  --deck-track: #1f180c;
+  --deck-acc: #f59e0b;
+  --deck-font: var(--font-mono);
+}
+:root[data-skin] body {
+  background: var(--deck-bg);
+}
+.deck {
+  --meter-fg: var(--deck-acc);
+  --meter-fill: color-mix(in oklch, var(--deck-acc) 16%, transparent);
+  --meter-track: var(--deck-track);
+  --meter-grid: var(--deck-track);
+}
+
+@keyframes eq {
+  0%,
+  100% {
+    height: 30%;
+  }
+  50% {
+    height: 100%;
+  }
+}
+
+@property --accent-h {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 263;
+}
+@property --accent-c {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 0.17;
+}
