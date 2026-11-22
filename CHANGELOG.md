@@ -13,7 +13,16 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Text on accent-coloured controls picks black or white for contrast automatically.
 - **Micro-deck sizes itself** to its content: it shrinks when meters are turned off and grows when they are turned on. The title column is fixed-width so the deck doesn't jump between tracks, and the time readout no longer gets truncated by long artist names. The deck's right-click menu now offers *Theme* instead of *Skin*.
 
+- Transport controls are centred under the waveform in a symmetric cluster (A / B · previous / play / next · tempo / repeat), with volume pinned right.
+- Discord Rich Presence uses Mono's built-in Discord application, so users only flip the switch; the Settings field is now an optional override. The activity shows the `mono` art asset when the Discord app has one uploaded.
+
+### Added
+- **Seek control setting** (Settings → Seek): choose the waveform or a plain thin bar. Both support click and drag scrubbing, hover preview, the time tooltip and the A–B loop band; the bar skips waveform decoding entirely.
+- **Theater mode** (`F`, the microphone button, or click the cover art; `Esc` to leave): large cover art over a blurred, tinted backdrop of the same art, with title, artist and album.
+- **Lyrics** in theater mode. Sources, in order: a sidecar `.lrc` next to the file, lyrics embedded in the tags, then [LRCLIB](https://lrclib.net) when *Download lyrics from LRCLIB* is enabled (off by default). Synced lyrics highlight the current line, auto-centre it (pausing for a few seconds after you scroll), and seek when a line is clicked; plain lyrics show as scrollable text. LRCLIB results and misses are cached in the app data folder so each track is looked up once; nothing is written into the music library.
+
 ### Fixed
+- Visualiser could stay blank (all readouts at −∞) while audio played. Meter on/off requests from the UI could arrive at the engine out of order, leaving analysis switched off. Requests are now coalesced and sequence-numbered per window, stale ones are ignored, the UI re-asserts its state every few seconds, and closed windows release their claim automatically.
 - Micro-deck right-click menu was clipped by the 64 px window; it is now a native menu (Skin and Meters submenus, Back to main window) that can extend past the deck.
 
 ## [0.1.0] - 2026-11-22

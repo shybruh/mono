@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { FolderPlus, X } from "lucide-react";
 import { useStore } from "@/lib/store";
+import { api } from "@/lib/api";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
@@ -35,6 +36,11 @@ export function SettingsDialog() {
   const setConfig = useStore((s) => s.setConfig);
   const [preamp, setPreamp] = useState(0);
   const [appId, setAppId] = useState("");
+  const [builtin, setBuiltin] = useState(false);
+
+  useEffect(() => {
+    api.appInfo().then((i) => setBuiltin(i.discordBuiltin)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (config) {
@@ -116,6 +122,22 @@ export function SettingsDialog() {
 
           <Separator />
 
+          <Section title="Seek">
+            <Row label="Seek control">
+              <Select value={config.seekStyle} onValueChange={(v) => setConfig({ seekStyle: v as typeof config.seekStyle })}>
+                <SelectTrigger size="sm" className="w-28">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="waveform">Waveform</SelectItem>
+                  <SelectItem value="bar">Bar</SelectItem>
+                </SelectContent>
+              </Select>
+            </Row>
+          </Section>
+
+          <Separator />
+
           <Section title="Theme">
             <ThemePicker />
             <Row label="Accent from cover art">
@@ -133,13 +155,17 @@ export function SettingsDialog() {
             <Row label="Listening history">
               <Switch checked={config.history} onCheckedChange={(v) => setConfig({ history: v })} />
             </Row>
+            <Row label="Download lyrics from LRCLIB">
+              <Switch checked={config.lyricsOnline} onCheckedChange={(v) => setConfig({ lyricsOnline: v })} />
+            </Row>
             <Row label="Discord Rich Presence">
               <Switch checked={config.discord} onCheckedChange={(v) => setConfig({ discord: v })} />
             </Row>
             {config.discord && (
-              <Row label="Application ID">
+              <Row label={builtin ? "Application ID override" : "Application ID"}>
                 <Input
                   value={appId}
+                  placeholder={builtin ? "Built-in" : ""}
                   onChange={(e) => setAppId(e.target.value.replace(/\D/g, ""))}
                   onBlur={() => appId !== config.discordAppId && setConfig({ discordAppId: appId })}
                   className="h-8 w-52 font-mono text-[12px]"

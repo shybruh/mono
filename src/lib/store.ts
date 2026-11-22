@@ -38,6 +38,8 @@ interface Store {
   palette: boolean;
   settings: boolean;
   tagTarget: string | null;
+  theater: boolean;
+  toggleTheater: (v?: boolean) => void;
 
   init: (opts?: { library?: boolean }) => Promise<void>;
   setConfig: (patch: Partial<Config>) => Promise<void>;
@@ -117,6 +119,8 @@ export const useStore = create<Store>((set, get) => ({
   palette: false,
   settings: false,
   tagTarget: null,
+  theater: false,
+  toggleTheater: (v) => set({ theater: v ?? !get().theater }),
 
   init: async ({ library = true } = {}) => {
     if (get().ready) return;

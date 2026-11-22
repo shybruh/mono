@@ -34,9 +34,13 @@ export function NowPlaying() {
 
   return (
     <div className="flex items-end gap-4 border-b p-4">
-      <div className="size-24 shrink-0 overflow-hidden rounded-lg bg-brand-wash">
+      <button
+        aria-label="Theater"
+        onClick={() => useStore.getState().toggleTheater(true)}
+        className="size-24 shrink-0 overflow-hidden rounded-lg bg-brand-wash transition-transform hover:scale-[1.03]"
+      >
         {cover && <img src={cover} alt="" className="size-full object-cover" draggable={false} />}
-      </div>
+      </button>
       <div className="min-w-0 flex-1">
         <div className="truncate text-[11px] text-brand">{source}</div>
         <div className="mt-0.5 truncate text-lg font-medium leading-tight">

@@ -57,6 +57,29 @@ export interface Config {
   vizOpen: boolean;
   vizMeters: string[];
   coverAccent: boolean;
+  lyricsOnline: boolean;
+  seekStyle: "waveform" | "bar";
+}
+
+export interface LyricLine {
+  time: number | null;
+  text: string;
+}
+
+export interface Lyrics {
+  synced: boolean;
+  source: "file" | "embedded" | "lrclib";
+  lines: LyricLine[];
+}
+
+export interface LyricsFound {
+  lyrics: Lyrics | null;
+  lookup: { artist: string; title: string; album: string | null; duration: number } | null;
+}
+
+export interface AppInfo {
+  version: string;
+  discordBuiltin: boolean;
 }
 
 export interface PlayerState {
@@ -116,6 +139,9 @@ export const api = {
   trackMeta: (path: string) => invoke<TrackMeta>("track_meta", { path }),
   waveform: (path: string, buckets: number) => invoke<number[]>("waveform", { path, buckets }),
   cover: (path: string) => invoke<string | null>("cover", { path }),
+  lyrics: (path: string) => invoke<LyricsFound>("lyrics", { path }),
+  storeLyrics: (path: string, raw: string | null) => invoke<Lyrics | null>("store_lyrics", { path, raw }),
+  appInfo: () => invoke<AppInfo>("app_info"),
   savePlaylist: (path: string, tracks: string[]) => invoke<void>("save_playlist", { path, tracks }),
 
   writeTags: (path: string, tags: TagEdit) => invoke<TrackMeta>("write_tags", { path, tags }),

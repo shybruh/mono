@@ -32,7 +32,9 @@ pnpm tauri build    # produce an installer in src-tauri/target/release/bundle
 
 ## Discord Rich Presence
 
-Create an application in the [Discord Developer Portal](https://discord.com/developers/applications), name it however you want the activity to read (e.g. "mono"), then paste its Application ID in **Settings → Modules**.
+Turn on **Settings → Modules → Discord Rich Presence**. Mono ships with its own Discord application, so your status reads *Listening to mono* with no setup.
+
+To show a different name, create your own application in the [Discord Developer Portal](https://discord.com/developers/applications) and paste its Application ID into the override field. Upload an art asset with the key `mono` to get the logo next to the activity.
 
 ## Keyboard
 

@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Pause, Play, Repeat, Repeat1, SkipBack, SkipForward, Volume1, Volume2, VolumeX } from "lucide-react";
+import { MicVocal, Pause, Play, Repeat, Repeat1, SkipBack, SkipForward, Volume1, Volume2, VolumeX } from "lucide-react";
 import { api } from "@/lib/api";
 import { useStore } from "@/lib/store";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -160,14 +160,18 @@ function Volume() {
 
 export function Transport() {
   const repeat = useStore((s) => s.player.repeat);
+  const theater = useStore((s) => s.theater);
   return (
     <div className="relative z-10 shrink-0 border-t bg-background px-4 pb-3.5 pt-5">
       <SeekBar />
-      <div className="mt-3.5 flex items-center justify-between">
+      {/* Symmetric cluster centred under the waveform; volume pinned right. */}
+      <div className="mt-3.5 grid grid-cols-[1fr_auto_1fr] items-center">
+        <div />
         <div className="flex items-center gap-2.5">
+          <LoopButtons />
+          <span className="mx-1 h-6 w-px bg-border" />
           <TransportButtons />
           <span className="mx-1 h-6 w-px bg-border" />
-          <LoopButtons />
           <SpeedPitch />
           <button
             aria-label={`Repeat ${repeat}`}
@@ -178,7 +182,20 @@ export function Transport() {
             {repeat === "one" ? <Repeat1 /> : <Repeat />}
           </button>
         </div>
-        <Volume />
+        <div className="flex items-center justify-end gap-3">
+          <button
+            aria-label="Theater"
+            title="Theater (F)"
+            onClick={() => useStore.getState().toggleTheater()}
+            className={cn(
+              "rounded p-1 text-muted-foreground hover:text-foreground [&_svg]:size-4",
+              theater && "text-brand hover:text-brand",
+            )}
+          >
+            <MicVocal />
+          </button>
+          <Volume />
+        </div>
       </div>
     </div>
   );

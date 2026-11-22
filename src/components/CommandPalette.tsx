@@ -28,6 +28,7 @@ function actions(): Action[] {
     { id: "speed", label: "Reset tempo and pitch", keys: "0", run: () => (api.setSpeed(1), api.setPitch(0)) },
     { id: "repeat", label: `Repeat: ${s.player.repeat} → next`, keys: "R", run: s.cycleRepeat },
     { id: "viz", label: "Toggle visualiser", keys: "V", run: s.toggleViz },
+    { id: "theater", label: "Theater and lyrics", keys: "F", run: () => s.toggleTheater() },
     { id: "deck", label: "Micro-deck", keys: "M", run: () => api.openDeck() },
     { id: "tags", label: "Edit tags", keys: "T", run: () => tagPath && s.openTags(tagPath) },
     { id: "folder", label: "Add folder", run: addFolder },

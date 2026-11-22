@@ -3,7 +3,7 @@ import { api } from "@/lib/api";
 import { useStore } from "@/lib/store";
 import { useCanvasLoop } from "@/hooks/useMeters";
 import { resolveColor } from "@/lib/accent";
-import { fmtTime } from "@/lib/utils";
+import { cn, fmtTime } from "@/lib/utils";
 
 const easeOut = (x: number) => 1 - Math.pow(1 - x, 3);
 const BAR = 3;
@@ -18,6 +18,8 @@ export function SeekBar() {
   const duration = useStore((s) => s.duration);
   const loopA = useStore((s) => s.player.loopA);
   const loopB = useStore((s) => s.player.loopB);
+  const style = useStore((s) => s.config?.seekStyle ?? "waveform");
+  const wave = style === "waveform";
 
   const zone = useRef<HTMLDivElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -29,7 +31,7 @@ export function SeekBar() {
   const path = track?.meta.path;
 
   useEffect(() => {
-    if (!path) return setPeaks(null);
+    if (!path || !wave) return setPeaks(null);
     let live = true;
     api
       .waveform(path, 1600)
@@ -43,8 +45,7 @@ export function SeekBar() {
     return () => {
       live = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [path]);
+  }, [path, wave]);
 
   const frac = (clientX: number) => {
     const r = zone.current!.getBoundingClientRect();
@@ -61,6 +62,39 @@ export function SeekBar() {
     const cRest = resolveColor(parent, "var(--input)");
     const cRestHover = resolveColor(parent, "var(--muted-foreground)");
     const cLine = resolveColor(parent, "var(--foreground)");
+
+    if (!wave) {
+      // Plain bar: 3 px track, accent fill, loop band, knob.
+      const y = Math.round(h / 2) - 1.5;
+      const hx = drag != null ? drag * w : hoverX;
+      ctx.fillStyle = cRest;
+      ctx.beginPath();
+      ctx.roundRect(0, y, w, 3, 1.5);
+      ctx.fill();
+      if (loopA != null && duration > 0) {
+        const a = (loopA / duration) * w;
+        const b = loopB != null ? (loopB / duration) * w : a + 2;
+        ctx.fillStyle = resolveColor(parent, "color-mix(in oklch, var(--brand) 45%, transparent)");
+        ctx.fillRect(a, y - 3, Math.max(2, b - a), 9);
+      }
+      ctx.fillStyle = cPlayed;
+      ctx.beginPath();
+      ctx.roundRect(0, y, played * w, 3, 1.5);
+      ctx.fill();
+      if (hx != null) {
+        ctx.globalAlpha = 0.5;
+        ctx.fillStyle = cLine;
+        ctx.fillRect(Math.round(hx), y - 3, 1, 9);
+        ctx.globalAlpha = 1;
+      }
+      if (duration > 0) {
+        ctx.fillStyle = cLine;
+        ctx.beginPath();
+        ctx.arc(played * w, h / 2, 4.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      return;
+    }
 
     const g = grow.current;
     if (g.p < 1) g.p = Math.min(1, g.p + 0.035);
@@ -115,7 +149,7 @@ export function SeekBar() {
       <span className="w-12 text-right">{fmtTime(shownPos)}</span>
       <div
         ref={zone}
-        className="relative h-12 flex-1 cursor-pointer"
+        className={cn("relative flex-1 cursor-pointer", wave ? "h-12" : "h-3.5")}
         onPointerMove={(e) => {
           const r = zone.current!.getBoundingClientRect();
           const x = Math.max(0, Math.min(r.width, e.clientX - r.left));

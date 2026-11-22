@@ -12,6 +12,7 @@ import { VisualizerPanel } from "@/components/VisualizerPanel";
 import { CommandPalette } from "@/components/CommandPalette";
 import { TagDrawer } from "@/components/TagDrawer";
 import { SettingsDialog } from "@/components/SettingsDialog";
+import { Theater } from "@/components/Theater";
 
 function isTyping(e: KeyboardEvent) {
   const t = e.target as HTMLElement | null;
@@ -100,6 +101,13 @@ function useShortcuts() {
         case "V":
           s.toggleViz();
           break;
+        case "f":
+        case "F":
+          s.toggleTheater();
+          break;
+        case "Escape":
+          if (s.theater) s.toggleTheater(false);
+          break;
         case "m":
         case "M":
           api.openDeck();
@@ -120,6 +128,7 @@ function useShortcuts() {
 export default function App() {
   const init = useStore((s) => s.init);
   const hasRoots = useStore((s) => (s.config ? s.config.roots.length > 0 : true));
+  const theater = useStore((s) => s.theater);
   useEffect(() => {
     init();
   }, [init]);
@@ -129,24 +138,28 @@ export default function App() {
     <TooltipProvider delayDuration={400}>
       <div className="flex h-full flex-col">
         <TitleBar />
-        <div className="flex min-h-0 flex-1">
-          <Sidebar />
-          <main className="flex min-w-0 flex-1 flex-col">
-            <NowPlaying />
-            {hasRoots ? (
-              <TrackList />
-            ) : (
-              <div className="flex flex-1 items-center justify-center">
-                <button
-                  onClick={addFolder}
-                  className="flex items-center gap-2 rounded-lg border border-dashed px-4 py-2.5 text-muted-foreground hover:border-brand hover:text-foreground"
-                >
-                  <FolderPlus className="size-4" /> Add folder
-                </button>
-              </div>
-            )}
-          </main>
-        </div>
+        {theater ? (
+          <Theater />
+        ) : (
+          <div className="flex min-h-0 flex-1">
+            <Sidebar />
+            <main className="flex min-w-0 flex-1 flex-col">
+              <NowPlaying />
+              {hasRoots ? (
+                <TrackList />
+              ) : (
+                <div className="flex flex-1 items-center justify-center">
+                  <button
+                    onClick={addFolder}
+                    className="flex items-center gap-2 rounded-lg border border-dashed px-4 py-2.5 text-muted-foreground hover:border-brand hover:text-foreground"
+                  >
+                    <FolderPlus className="size-4" /> Add folder
+                  </button>
+                </div>
+              )}
+            </main>
+          </div>
+        )}
         <VisualizerPanel />
         <Transport />
       </div>

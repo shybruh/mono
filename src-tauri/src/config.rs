@@ -23,6 +23,9 @@ pub struct Config {
     pub viz_open: bool,
     pub viz_meters: Vec<String>,
     pub cover_accent: bool,
+    pub lyrics_online: bool,
+    /// "waveform" or "bar".
+    pub seek_style: String,
 }
 
 impl Default for Config {
@@ -42,6 +45,8 @@ impl Default for Config {
             viz_open: false,
             viz_meters: vec!["spectrum".into(), "scope".into(), "peak".into(), "lufs".into()],
             cover_accent: true,
+            lyrics_online: false,
+            seek_style: "waveform".into(),
         }
     }
 }

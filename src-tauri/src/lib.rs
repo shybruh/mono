@@ -2,6 +2,7 @@
 mod config;
 mod integrations;
 mod library;
+mod lyrics;
 mod meta;
 mod tags;
 
@@ -128,6 +129,36 @@ async fn waveform(app: AppHandle, path: String, buckets: usize) -> Res<Vec<f32>>
 #[tauri::command]
 async fn cover(path: String) -> Res<Option<String>> {
     tauri::async_runtime::spawn_blocking(move || tags::cover(Path::new(&path))).await.map_err(err)
+}
+
+#[tauri::command]
+async fn lyrics(app: AppHandle, path: String) -> Res<lyrics::Found> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let meta = state.meta.get(Path::new(&path));
+        lyrics::find(&meta, &state.data_dir, state.config.get().lyrics_online)
+    })
+    .await
+    .map_err(err)
+}
+
+/// Caches (and parses) lyrics the UI fetched from LRCLIB; `raw: null` records a miss.
+#[tauri::command]
+fn store_lyrics(state: State<AppState>, path: String, raw: Option<String>) -> Option<lyrics::Lyrics> {
+    let meta = state.meta.get(Path::new(&path));
+    lyrics::store(&meta, &state.data_dir, raw.as_deref())
+}
+
+#[derive(serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AppInfo {
+    version: &'static str,
+    discord_builtin: bool,
+}
+
+#[tauri::command]
+fn app_info() -> AppInfo {
+    AppInfo { version: env!("CARGO_PKG_VERSION"), discord_builtin: !integrations::BUILTIN_DISCORD_APP_ID.is_empty() }
 }
 
 #[tauri::command]
@@ -351,6 +382,9 @@ pub fn run() {
             track_meta,
             waveform,
             cover,
+            lyrics,
+            store_lyrics,
+            app_info,
             save_playlist,
             write_tags,
             set_cover,

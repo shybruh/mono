@@ -51,6 +51,15 @@ pub fn read_history(data_dir: &Path, days: u64) -> Vec<String> {
     out
 }
 
+/// Mono's own Discord application ("Listening to mono"). This is a public
+/// client ID, not a secret. Users can override it in Settings.
+pub const BUILTIN_DISCORD_APP_ID: &str = "1574048757648072765";
+
+fn effective_app_id(configured: &str) -> String {
+    let c = configured.trim();
+    if c.is_empty() { BUILTIN_DISCORD_APP_ID.to_owned() } else { c.to_owned() }
+}
+
 struct Discord {
     app_id: String,
     client: Option<DiscordIpcClient>,
@@ -92,7 +101,8 @@ impl Discord {
                         .activity_type(ActivityType::Listening)
                         .details(details)
                         .timestamps(ts)
-                        .assets(Assets::new().large_text(album));
+                        // "mono" is the art asset key uploaded to the Discord app.
+                        .assets(Assets::new().large_image("mono").large_text(album));
                     if !state.is_empty() {
                         act = act.state(state);
                     }
@@ -122,7 +132,7 @@ pub fn spawn(data_dir: PathBuf, rx: Receiver<Hook>, history: bool, discord: bool
         .spawn(move || {
             let mut history_on = history;
             let mut discord_on = discord;
-            let mut dc = Discord { app_id, client: None, last_attempt: None };
+            let mut dc = Discord { app_id: effective_app_id(&app_id), client: None, last_attempt: None };
             let mut current: Option<TrackMeta> = None;
             let mut playing = false;
             let mut pos = 0.0;
@@ -141,6 +151,7 @@ pub fn spawn(data_dir: PathBuf, rx: Receiver<Hook>, history: bool, discord: bool
                         pos = t;
                     }
                     Ok(Hook::Config { history, discord, app_id }) => {
+                        let app_id = effective_app_id(&app_id);
                         history_on = history;
                         if !discord || app_id != dc.app_id {
                             dc.shutdown();
