@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { useStore, refreshTheme } from "@/lib/store";
 import { THEMES, isHex, themeById, type ThemeColors } from "@/lib/theme";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
 let persistTimer: number | undefined;
@@ -71,15 +72,18 @@ export function ThemePicker() {
     const from = themeById(active);
     useStore.getState().setConfig({
       theme: "custom",
-      customTheme: untouched && active !== "custom" ? { bg: from.bg, fg: from.fg, accent: from.accent } : config.customTheme,
+      customTheme:
+        untouched && active !== "custom"
+          ? { bg: from.bg, fg: from.fg, accent: from.accent, glass: !!from.glass }
+          : config.customTheme,
     });
   };
 
   return (
     <div className="space-y-2">
-      <div className="grid grid-cols-5 gap-2">
+      <div className="grid grid-cols-7 gap-2">
         {THEMES.map((t) => {
-          const colors = t.id === "custom" ? config.customTheme : t;
+          const colors: ThemeColors = t.id === "custom" ? config.customTheme : t;
           const on = active === t.id;
           return (
             <button
@@ -96,7 +100,12 @@ export function ThemePicker() {
                   "relative flex h-12 w-full items-end justify-between overflow-hidden rounded-md border p-1.5 transition-shadow",
                   on && "ring-2 ring-brand ring-offset-2 ring-offset-background",
                 )}
-                style={{ background: colors.bg }}
+                style={{
+                  // Glass swatches hint at translucency with a soft tinted sheen.
+                  background: colors.glass
+                    ? `linear-gradient(135deg, ${colors.accent}66, ${colors.bg}d9 45%, ${colors.bg}b3 70%, ${colors.fg}33)`
+                    : colors.bg,
+                }}
               >
                 <span
                   className="text-[13px] leading-none font-medium"
@@ -134,6 +143,13 @@ export function ThemePicker() {
             value={config.customTheme.accent}
             onChange={(accent) => setCustom({ ...config.customTheme, accent })}
           />
+          <div className="flex min-h-9 items-center justify-between gap-6">
+            <span className="text-[13px] text-muted-foreground">Translucent</span>
+            <Switch
+              checked={!!config.customTheme.glass}
+              onCheckedChange={(glass) => setCustom({ ...config.customTheme, glass })}
+            />
+          </div>
         </div>
       )}
     </div>

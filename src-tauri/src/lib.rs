@@ -303,6 +303,8 @@ async fn open_deck(app: AppHandle) -> Res<()> {
             .decorations(false)
             .always_on_top(true)
             .resizable(true)
+            // Transparent so the Glass / Frost themes can show the OS blur.
+            .transparent(true)
             .shadow(true)
             .build()
             .map_err(err)?;

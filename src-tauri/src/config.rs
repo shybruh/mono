@@ -60,11 +60,13 @@ pub struct CustomTheme {
     pub bg: String,
     pub fg: String,
     pub accent: String,
+    /// Frosted translucent background (OS blur behind the window).
+    pub glass: bool,
 }
 
 impl Default for CustomTheme {
     fn default() -> Self {
-        Self { bg: "#09090b".into(), fg: "#e4e4e7".into(), accent: "#a78bfa".into() }
+        Self { bg: "#09090b".into(), fg: "#e4e4e7".into(), accent: "#a78bfa".into(), glass: false }
     }
 }
 

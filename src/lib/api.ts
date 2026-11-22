@@ -53,7 +53,7 @@ export interface Config {
   discord: boolean;
   discordAppId: string;
   theme: string;
-  customTheme: { bg: string; fg: string; accent: string };
+  customTheme: { bg: string; fg: string; accent: string; glass?: boolean };
   deckMeters: string[];
   vizOpen: boolean;
   vizMeters: string[];

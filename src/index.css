@@ -129,6 +129,34 @@
   }
 }
 
+/*
+ * Glass / Frost: the page is translucent over the OS blur (set by
+ * src/lib/theme.ts). Floating layers get their own backdrop blur and a
+ * denser fill so text stays legible over whatever is behind the window.
+ */
+:root {
+  --base-solid: #09090b;
+}
+:root[data-glass] {
+  --popover: color-mix(in oklch, var(--base-solid) 84%, transparent);
+  --card: color-mix(in oklch, var(--base-fg) 6%, var(--base-bg));
+}
+:root[data-glass] :is(
+    [data-slot="popover-content"],
+    [data-slot="dialog-content"],
+    [data-slot="sheet-content"],
+    [data-slot="dropdown-menu-content"],
+    [data-slot="context-menu-content"],
+    [data-slot="context-menu-sub-content"],
+    [data-slot="select-content"]
+  ) {
+  background-color: color-mix(in oklch, var(--base-solid) 84%, transparent);
+  backdrop-filter: blur(28px) saturate(1.5);
+}
+:root[data-glass] #root {
+  box-shadow: inset 0 0 0 1px color-mix(in oklch, var(--base-fg) 12%, transparent);
+}
+
 /* The micro-deck follows the app theme. Meters inside it read --meter-*. */
 .deck {
   --deck-bg: var(--background);
