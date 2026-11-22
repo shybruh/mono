@@ -18,3 +18,6 @@ export function basename(p: string): string {
   const parts = p.split(/[\\/]/);
   return parts[parts.length - 1] || p;
 }
+
+/** Shared collator: natural ("Track 2" < "Track 10"), case-insensitive. */
+export const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });

@@ -20,9 +20,10 @@ export function TransportButtons({ compact = false }: { compact?: boolean }) {
       <button
         aria-label={playing ? "Pause" : "Play"}
         onClick={() => api.toggle()}
-        className="flex size-[42px] items-center justify-center rounded-full bg-brand text-brand-foreground transition-colors hover:bg-brand-strong [&_svg]:size-[19px] [&_svg]:fill-current"
+        className="relative flex size-[42px] items-center justify-center rounded-full bg-brand text-brand-foreground hover:bg-brand-strong hover:scale-105 [&_svg]:absolute [&_svg]:size-[19px] [&_svg]:fill-current [&_svg]:transition-[opacity,scale,rotate] [&_svg]:duration-200 [&_svg]:ease-[var(--ease-spring)]"
       >
-        {playing ? <Pause /> : <Play className="translate-x-px" />}
+        <Pause className={cn(playing ? "scale-100 rotate-0 opacity-100" : "scale-50 -rotate-90 opacity-0")} />
+        <Play className={cn("translate-x-px", playing ? "scale-50 rotate-90 opacity-0" : "scale-100 rotate-0 opacity-100")} />
       </button>
       <button aria-label="Next" className={btn} onClick={() => api.next()}>
         <SkipForward />
@@ -187,7 +188,7 @@ export function Transport() {
             aria-label="Shuffle"
             title="Shuffle (S)"
             onClick={() => useStore.getState().toggleShuffle()}
-            className={cn(btn, "text-muted-foreground", shuffle && "border-brand text-brand")}
+            className={cn(btn, "text-muted-foreground", shuffle && "animate-pop border-brand text-brand")}
           >
             <Shuffle />
           </button>
@@ -202,7 +203,9 @@ export function Transport() {
             onClick={() => useStore.getState().cycleRepeat()}
             className={cn(btn, "text-muted-foreground", repeat !== "off" && "border-brand text-brand")}
           >
-            {repeat === "one" ? <Repeat1 /> : <Repeat />}
+            <span key={repeat} className={cn("flex", repeat !== "off" && "animate-pop")}>
+              {repeat === "one" ? <Repeat1 /> : <Repeat />}
+            </span>
           </button>
         </div>
         <div className="flex items-center justify-end gap-3">

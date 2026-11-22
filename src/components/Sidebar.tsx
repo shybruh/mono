@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { ChevronRight, Folder, FolderOpen, FolderPlus, History, ListFilter, ListMusic, Plus } from "lucide-react";
-import { newSmartCrate } from "./SmartCrateDialog";
+import { newSmartCrate } from "@/lib/smartCrate";
 import type { CrateNode } from "@/lib/api";
 import { EMPTY, useStore, viewKey, type View } from "@/lib/store";
 import {

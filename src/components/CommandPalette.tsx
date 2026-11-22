@@ -6,7 +6,7 @@ import { useStore } from "@/lib/store";
 import { multiScore } from "@/lib/fuzzy";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { addFolder } from "./Sidebar";
-import { newSmartCrate } from "./SmartCrateDialog";
+import { newSmartCrate } from "@/lib/smartCrate";
 import { analyse } from "@/lib/analysis";
 import { basename } from "@/lib/utils";
 

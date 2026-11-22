@@ -1,3 +1,4 @@
+import { collator } from "./utils";
 // Track-list columns: one registry for headers, cells, sorting, widths and
 // the right-click column chooser.
 
@@ -168,7 +169,7 @@ export function sortTracks(list: TrackMeta[], sort: SortState | null, ctx: Omit<
     const bv = b.v;
     if (av == null || av === "") return bv == null || bv === "" ? a.i - b.i : 1;
     if (bv == null || bv === "") return -1;
-    const c = typeof av === "number" && typeof bv === "number" ? av - bv : String(av).localeCompare(String(bv), undefined, { numeric: true });
+    const c = typeof av === "number" && typeof bv === "number" ? av - bv : collator.compare(String(av), String(bv));
     return c === 0 ? a.i - b.i : c * sort.dir;
   });
   return keyed.map((k) => k.m);

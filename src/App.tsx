@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { FolderPlus } from "lucide-react";
 import { api } from "@/lib/api";
 import { useStore } from "@/lib/store";
@@ -10,14 +10,39 @@ import { TrackList } from "@/components/TrackList";
 import { Transport } from "@/components/Transport";
 import { VisualizerPanel } from "@/components/VisualizerPanel";
 import { CommandPalette } from "@/components/CommandPalette";
-import { TagDrawer } from "@/components/TagDrawer";
-import { SettingsDialog } from "@/components/SettingsDialog";
-import { Theater } from "@/components/Theater";
 import { QueuePanel } from "@/components/QueuePanel";
-import { ParametricEq } from "@/components/ParametricEq";
-import { SmartCrateDialog } from "@/components/SmartCrateDialog";
-import { AlbumGrid } from "@/components/AlbumGrid";
 import { startAutoCheck } from "@/lib/updater";
+
+// Screens that aren't on screen at launch load in their own chunks, fetched
+// while the app is idle so opening them later is still instant.
+const chunks = {
+  TagDrawer: () => import("@/components/TagDrawer").then((m) => ({ default: m.TagDrawer })),
+  SettingsDialog: () => import("@/components/SettingsDialog").then((m) => ({ default: m.SettingsDialog })),
+  Theater: () => import("@/components/Theater").then((m) => ({ default: m.Theater })),
+  ParametricEq: () => import("@/components/ParametricEq").then((m) => ({ default: m.ParametricEq })),
+  SmartCrateDialog: () => import("@/components/SmartCrateDialog").then((m) => ({ default: m.SmartCrateDialog })),
+  AlbumGrid: () => import("@/components/AlbumGrid").then((m) => ({ default: m.AlbumGrid })),
+};
+const TagDrawer = lazy(chunks.TagDrawer);
+const SettingsDialog = lazy(chunks.SettingsDialog);
+const Theater = lazy(chunks.Theater);
+const ParametricEq = lazy(chunks.ParametricEq);
+const SmartCrateDialog = lazy(chunks.SmartCrateDialog);
+const AlbumGrid = lazy(chunks.AlbumGrid);
+
+function preloadChunks() {
+  const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => void }).requestIdleCallback ?? ((cb) => setTimeout(cb, 1500));
+  idle(() => Object.values(chunks).forEach((c) => c().catch(() => {})));
+}
+
+/** Mounts its children the first time `when` is true, then keeps them. */
+function Deferred({ when, children }: { when: boolean; children: React.ReactNode }) {
+  const [seen, setSeen] = useState(when);
+  useEffect(() => {
+    if (when) setSeen(true);
+  }, [when]);
+  return seen || when ? <Suspense fallback={null}>{children}</Suspense> : null;
+}
 
 function isTyping(e: KeyboardEvent) {
   const t = e.target as HTMLElement | null;
@@ -168,6 +193,11 @@ export default function App() {
   const init = useStore((s) => s.init);
   const hasRoots = useStore((s) => (s.config ? s.config.roots.length > 0 : true));
   const theater = useStore((s) => s.theater);
+  const tagOpen = useStore((s) => !!s.tagTarget?.length);
+  const eqOpen = useStore((s) => s.eqOpen);
+  const smartOpen = useStore((s) => !!s.smartEdit);
+  const settingsOpen = useStore((s) => s.settings);
+  useEffect(preloadChunks, []);
   const layout = useStore((s) => s.layout);
   const fullscreen = useStore((s) => s.fullscreen);
   const autoUpdate = useStore((s) => s.config?.autoUpdate);
@@ -183,20 +213,30 @@ export default function App() {
     <TooltipProvider delayDuration={400}>
       {fullscreen ? (
         <div className="flex h-full flex-col">
-          <Theater fullscreen />
+          <Suspense fallback={null}>
+            <Theater fullscreen />
+          </Suspense>
         </div>
       ) : (
       <div className="flex h-full flex-col">
         <TitleBar />
         {theater ? (
-          <Theater />
+          <Suspense fallback={null}>
+            <Theater />
+          </Suspense>
         ) : (
           <div className="flex min-h-0 flex-1">
             <Sidebar />
             <main className="flex min-w-0 flex-1 flex-col">
               <NowPlaying />
               {hasRoots ? (
-                layout === "albums" ? <AlbumGrid /> : <TrackList />
+                layout === "albums" ? (
+                  <Suspense fallback={null}>
+                    <AlbumGrid />
+                  </Suspense>
+                ) : (
+                  <TrackList />
+                )
               ) : (
                 <div className="flex flex-1 items-center justify-center">
                   <button
@@ -215,11 +255,19 @@ export default function App() {
       </div>
       )}
       <CommandPalette />
-      <TagDrawer />
+      <Deferred when={tagOpen}>
+        <TagDrawer />
+      </Deferred>
       <QueuePanel />
-      <ParametricEq />
-      <SmartCrateDialog />
-      <SettingsDialog />
+      <Deferred when={eqOpen}>
+        <ParametricEq />
+      </Deferred>
+      <Deferred when={smartOpen}>
+        <SmartCrateDialog />
+      </Deferred>
+      <Deferred when={settingsOpen}>
+        <SettingsDialog />
+      </Deferred>
     </TooltipProvider>
   );
 }

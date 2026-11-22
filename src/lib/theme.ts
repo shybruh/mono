@@ -113,7 +113,32 @@ function setWindowGlass(on: boolean) {
   });
 }
 
+let themed = false;
+let transition: { skipTransition: () => void } | null = null;
+
+/**
+ * Applies a theme. After the first paint, colour changes crossfade as a
+ * single composited snapshot (a view transition) instead of animating the
+ * root colours, which would restyle every element on every frame.
+ */
 export function applyTheme(t: ResolvedTheme) {
+  const root = document.documentElement;
+  const same =
+    root.style.getPropertyValue("--base-fg") === t.colors.fg &&
+    root.style.getPropertyValue("--base-accent") === t.colors.accent &&
+    root.style.getPropertyValue("--base-solid") === t.colors.bg;
+  const doc = document as Document & { startViewTransition?: (cb: () => void) => { skipTransition: () => void } };
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (themed && !same && !reduce && doc.startViewTransition && document.visibilityState === "visible") {
+    transition?.skipTransition();
+    transition = doc.startViewTransition(() => setTheme(t));
+  } else {
+    setTheme(t);
+  }
+  themed = true;
+}
+
+function setTheme(t: ResolvedTheme) {
   const root = document.documentElement;
   const glass = !!t.colors.glass;
   const dark = luminance(t.colors.bg) < 0.4;

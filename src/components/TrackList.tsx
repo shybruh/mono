@@ -87,6 +87,7 @@ export function TrackList() {
   const isPlaying = useStore((s) => s.player.playing);
   const rgMode = useStore((s) => s.config?.rgMode ?? "track");
   const view = useStore((s) => s.view);
+  const viewKey = view ? JSON.stringify(view) : "";
   const fill = useFill();
   const analysing = useAnalysis();
   const missing = useMemo(() => list.filter(needsInfo).length, [list]);
@@ -250,7 +251,7 @@ export function TrackList() {
             onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
           >
             {!loading && list.length > 0 && (
-              <div style={{ height: list.length * ROW, position: "relative" }}>
+              <div key={viewKey} className="animate-rise" style={{ height: list.length * ROW, position: "relative" }}>
                 {list.slice(start, end).map((m, k) => {
                   const i = start + k;
                   const playing = m.path === playingPath;

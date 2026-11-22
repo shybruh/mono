@@ -162,6 +162,11 @@ fn data_url(mime: &str, bytes: &[u8]) -> String {
 
 /// Embedded front cover, else any embedded picture, else a folder image.
 pub fn cover(path: &Path) -> Option<String> {
+    cover_bytes(path).map(|(mime, bytes)| data_url(&mime, &bytes))
+}
+
+/// The cover image as (mime type, bytes).
+pub fn cover_bytes(path: &Path) -> Option<(String, Vec<u8>)> {
     if let Ok(file) = lofty::read_from_path(path) {
         if let Some(tag) = file.primary_tag().or_else(|| file.first_tag()) {
             let pics = tag.pictures();
@@ -171,7 +176,7 @@ pub fn cover(path: &Path) -> Option<String> {
                 .or_else(|| pics.first());
             if let Some(p) = pic {
                 let mime = p.mime_type().map(|m| m.as_str().to_owned()).unwrap_or_else(|| "image/jpeg".into());
-                return Some(data_url(&mime, p.data()));
+                return Some((mime, p.data().to_vec()));
             }
         }
     }
@@ -181,7 +186,7 @@ pub fn cover(path: &Path) -> Option<String> {
             let p = dir.join(format!("{name}.{ext}"));
             if let Ok(bytes) = std::fs::read(&p) {
                 let mime = if ext == "png" { "image/png" } else if ext == "webp" { "image/webp" } else { "image/jpeg" };
-                return Some(data_url(mime, &bytes));
+                return Some((mime.into(), bytes));
             }
         }
     }

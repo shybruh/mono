@@ -1,5 +1,6 @@
 import { useStore } from "@/lib/store";
 import { basename, cn } from "@/lib/utils";
+import { centreOf } from "@/lib/motion";
 import { LayoutGrid, Rows3 } from "lucide-react";
 
 function Chip({ children, muted }: { children: React.ReactNode; muted?: boolean }) {
@@ -54,12 +55,12 @@ export function NowPlaying() {
       </div>
       <button
         aria-label="Theater"
-        onClick={() => useStore.getState().toggleTheater(true)}
+        onClick={(e) => useStore.getState().toggleTheater(true, centreOf(e.currentTarget))}
         className="size-24 shrink-0 overflow-hidden rounded-lg bg-brand-wash transition-transform hover:scale-[1.03]"
       >
-        {cover && <img src={cover} alt="" className="size-full object-cover" draggable={false} />}
+        {cover && <img key={cover} src={cover} alt="" className="size-full animate-fade object-cover" draggable={false} />}
       </button>
-      <div className="min-w-0 flex-1">
+      <div key={m?.path ?? ""} className="min-w-0 flex-1 animate-rise">
         <div className="truncate text-[11px] text-brand">{source}</div>
         <div className="mt-0.5 truncate text-lg font-medium leading-tight">
           {m ? m.title : <span className="text-muted-foreground">—</span>}

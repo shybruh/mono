@@ -5,6 +5,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Performance
+- **Covers load as images, not text.** Album art used to be read at full size and sent to the window as a long text string for every cover; it's now served directly to the page, with small thumbnails made once and kept on disk. The album grid fills in faster, and large embedded art no longer has to be converted on every track change.
+- **Theme and cover-accent changes no longer restyle the whole window on every frame.** The colour change now crossfades as a single snapshot.
+- Sorting large crates is faster (one shared text comparer instead of building a new one per comparison).
+- The theater view, album grid, tag editor, equaliser, smart crate editor and settings load in their own chunks, fetched once the app is idle, so startup does less work.
+
+### Added
+- **Motion throughout**, all short (under 400 ms), and switched off when Windows' *Show animations* setting is off:
+  - Theater mode and albums zoom out of the cover you clicked and shrink back into it.
+  - Dialogs and side panels spring in; settings pages crossfade, with the highlight sliding between them.
+  - The cover and title crossfade on track change, the play button morphs between play and pause, and shuffle and repeat pop when turned on.
+  - Albums and album tracks appear in a quick stagger, and the track list rises in when you switch crates.
+  - Equaliser nodes grow on hover, pop in when added and shrink away when deleted, and the curve glides between presets.
+  - Buttons press in slightly when clicked.
+
 ## [0.4.0] - 2026-11-22
 
 Mono grows from a player into a small music workstation: a queue, smart crates, BPM and key detection, a parametric equaliser and a few more ways to see your music.

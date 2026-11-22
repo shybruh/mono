@@ -138,8 +138,8 @@ export function useCanvas(
     if (!el) return;
     const ro = new ResizeObserver(() => h.kick());
     ro.observe(el);
-    // Theme / accent changes cross-fade over ~500 ms; follow them.
-    const mo = new MutationObserver(() => h.kick(700));
+    // Theme / accent changes: redraw with the new colours.
+    const mo = new MutationObserver(() => h.kick());
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ["style", "class", "data-glass"] });
     return () => {
       ro.disconnect();

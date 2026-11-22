@@ -7,6 +7,7 @@ mod lyrics;
 mod meta;
 mod smart;
 mod tags;
+mod thumbs;
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -414,6 +415,10 @@ fn audio_args(args: impl Iterator<Item = String>) -> Vec<String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .register_asynchronous_uri_scheme_protocol("cover", |ctx, request, responder| {
+            let cache = ctx.app_handle().path().app_cache_dir().map(|d| d.join("thumbs")).unwrap_or_default();
+            std::thread::spawn(move || responder.respond(thumbs::serve(&cache, &request)));
+        })
         // Must be first: a second launch (e.g. "Open with Mono" while running)
         // hands its files to this instance and exits.
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {

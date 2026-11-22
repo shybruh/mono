@@ -45,9 +45,6 @@ const OPS: Record<Kind, { id: string; label: string }[]> = {
 const kindOf = (field: string): Kind => SMART_FIELDS.find((f) => f.id === field)?.kind ?? "text";
 const newRule = (): SmartRule => ({ field: "genre", op: "contains", value: "" });
 
-export function newSmartCrate(): SmartCrate {
-  return { id: crypto.randomUUID(), name: "", matchAll: true, limit: null, rules: [newRule()] };
-}
 
 export function SmartCrateDialog() {
   const editing = useStore((s) => s.smartEdit);

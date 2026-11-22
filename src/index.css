@@ -10,6 +10,8 @@
  */
 :root {
   --radius: 0.5rem;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
 
   --base-bg: #09090b;
   --base-fg: #e4e4e7;
@@ -92,11 +94,45 @@
     @apply bg-background text-foreground antialiased select-none overflow-hidden;
     font-size: 13px;
   }
-  :root {
-    transition:
-      --base-accent 500ms ease,
-      --base-bg 300ms ease,
-      --base-fg 300ms ease;
+  /* Theme changes crossfade as one snapshot (see applyTheme); clicks pass through. */
+  ::view-transition {
+    pointer-events: none;
+  }
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 380ms;
+    animation-timing-function: ease;
+  }
+  /* Zooms (theater, albums): grow out of / shrink into the clicked point. */
+  :root[data-vt]::view-transition-old(root),
+  :root[data-vt]::view-transition-new(root) {
+    animation-duration: 280ms;
+    animation-timing-function: var(--ease-out-expo);
+    transform-origin: var(--vt-x, 50%) var(--vt-y, 50%);
+  }
+  :root[data-vt="zoom-in"]::view-transition-old(root) {
+    animation-name: vt-fade-out;
+  }
+  :root[data-vt="zoom-in"]::view-transition-new(root) {
+    animation-name: vt-zoom-in;
+  }
+  :root[data-vt="zoom-out"]::view-transition-old(root) {
+    animation-name: vt-zoom-out;
+    z-index: 1;
+  }
+  :root[data-vt="zoom-out"]::view-transition-new(root) {
+    animation-name: vt-fade-in;
+  }
+
+  /* Press feedback on every button. */
+  button {
+    transition-property: color, background-color, border-color, opacity, scale, translate, box-shadow;
+    transition-duration: 120ms;
+    transition-timing-function: var(--ease-out-expo);
+  }
+  button:not(:disabled):active {
+    scale: 0.94;
+    transition-duration: 60ms;
   }
   /* Floating pill scrollbars: inset from the edge, brighter on hover. */
   ::-webkit-scrollbar {
@@ -181,7 +217,7 @@
   }
 }
 
-/* Registered so theme and cover-accent changes cross-fade. */
+/* Typed colours (theme changes crossfade via a view transition in applyTheme). */
 @property --base-accent {
   syntax: "<color>";
   inherits: true;
@@ -196,4 +232,84 @@
   syntax: "<color>";
   inherits: true;
   initial-value: #e4e4e7;
+}
+
+@keyframes vt-zoom-in {
+  from {
+    opacity: 0;
+    scale: 0.92;
+  }
+}
+@keyframes vt-zoom-out {
+  to {
+    opacity: 0;
+    scale: 0.92;
+  }
+}
+@keyframes vt-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes vt-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Small motion utilities. */
+@keyframes pop {
+  0% {
+    scale: 1;
+  }
+  40% {
+    scale: 1.16;
+  }
+  100% {
+    scale: 1;
+  }
+}
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    translate: 0 6px;
+  }
+}
+@keyframes fade-in-soft {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes node-in {
+  from {
+    scale: 0;
+  }
+}
+@keyframes node-out {
+  to {
+    scale: 0;
+    opacity: 0;
+  }
+}
+@utility animate-pop {
+  animation: pop 260ms var(--ease-spring);
+}
+@utility animate-rise {
+  animation: rise-in 320ms var(--ease-out-expo) both;
+}
+@utility animate-fade {
+  animation: fade-in-soft 220ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after,
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 1ms !important;
+    animation-delay: 0ms !important;
+    transition-duration: 1ms !important;
+  }
 }

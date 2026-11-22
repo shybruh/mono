@@ -365,13 +365,19 @@ export function SettingsDialog() {
         <DialogDescription className="sr-only">Mono preferences</DialogDescription>
         <nav className="flex w-52 shrink-0 flex-col gap-0.5 border-r bg-muted/30 p-3">
           <DialogTitle className="px-2.5 pt-1 pb-3 text-sm font-medium">Settings</DialogTitle>
+          <div className="relative flex flex-col gap-0.5">
+            <span
+              aria-hidden
+              className="absolute inset-x-0 top-0 h-8 rounded-md bg-accent transition-transform duration-300 ease-[var(--ease-out-expo)]"
+              style={{ transform: `translateY(${PAGES.findIndex((p) => p.id === page) * 34}px)` }}
+            />
           {PAGES.map((p) => (
             <button
               key={p.id}
               onClick={() => setPage(p.id)}
               className={cn(
-                "flex h-8 items-center gap-2.5 rounded-md px-2.5 text-[13px] text-muted-foreground hover:bg-accent/60 hover:text-foreground [&_svg]:size-4",
-                page === p.id && "bg-accent text-foreground",
+                "relative flex h-8 items-center gap-2.5 rounded-md px-2.5 text-[13px] text-muted-foreground hover:text-foreground active:scale-100 [&_svg]:size-4",
+                page === p.id && "text-foreground",
               )}
             >
               <p.icon />
@@ -379,12 +385,13 @@ export function SettingsDialog() {
               {p.id === "sleep" && sleeping && <span className="ml-auto size-1.5 rounded-full bg-brand" />}
             </button>
           ))}
+          </div>
         </nav>
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex h-14 shrink-0 items-center border-b px-6 pr-12">
-            <h2 className="text-[15px] font-medium">{current.label}</h2>
+            <h2 key={page} className="animate-fade text-[15px] font-medium">{current.label}</h2>
           </div>
-          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-6 py-5 [scrollbar-gutter:stable]">
+          <div key={page} className="min-h-0 flex-1 animate-rise space-y-6 overflow-y-auto px-6 py-5 [scrollbar-gutter:stable]">
             {page === "library" && <LibraryPage />}
             {page === "playback" && <PlaybackPage />}
             {page === "sound" && <SoundPage />}

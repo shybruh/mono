@@ -96,10 +96,12 @@ function Graph({
   eq,
   selected,
   onSelect,
+  removing,
 }: {
   eq: EqSettings;
   selected: number | null;
   onSelect: (i: number | null) => void;
+  removing: number | null;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const { w, h } = useSize(box);
@@ -174,6 +176,7 @@ function Graph({
           strokeWidth={2.25}
           className={cn(eq.enabled ? "stroke-brand" : "stroke-muted-foreground/50")}
           strokeLinejoin="round"
+          style={{ transition: dragging ? "none" : "d 220ms var(--ease-out-expo)" }}
         />
 
         {eq.bands.map((b, i) => {
@@ -185,7 +188,7 @@ function Graph({
               key={i}
               data-node
               transform={`translate(${x},${y})`}
-              className={dragging ? "cursor-grabbing" : "cursor-grab"}
+              className={cn("group/node", dragging ? "cursor-grabbing" : "cursor-grab")}
               onPointerDown={(e) => {
                 e.stopPropagation();
                 if (e.button !== 0) {
@@ -232,10 +235,28 @@ function Graph({
                 onSelect(i);
               }}
             >
-              <circle r={on ? 9 : 7} fill={b.enabled ? colorOf(i) : "var(--muted)"} stroke={on ? "var(--foreground)" : "var(--background)"} strokeWidth={2} />
-              <text y={3.5} textAnchor="middle" className="pointer-events-none fill-background font-mono text-[9px] font-semibold">
-                {i + 1}
-              </text>
+              <g
+                style={{
+                  animation:
+                    i === removing
+                      ? "node-out 160ms var(--ease-out-expo) forwards"
+                      : "node-in 320ms var(--ease-spring) both",
+                }}
+              >
+                <circle
+                  fill={b.enabled ? colorOf(i) : "var(--muted)"}
+                  stroke={on ? "var(--foreground)" : "var(--background)"}
+                  strokeWidth={2}
+                  className={cn(
+                    "transition-[r,fill,stroke] duration-200 ease-[var(--ease-spring)]",
+                    on ? "[r:9px] group-hover/node:[r:10.5px]" : "[r:7px] group-hover/node:[r:9px]",
+                    dragging && on && "[r:10.5px]",
+                  )}
+                />
+                <text y={3.5} textAnchor="middle" className="pointer-events-none fill-background font-mono text-[9px] font-semibold">
+                  {i + 1}
+                </text>
+              </g>
             </g>
           );
         })}
@@ -384,12 +405,19 @@ export function ParametricEq() {
   const open = useStore((s) => s.eqOpen);
   const config = useStore((s) => s.config);
   const [selected, setSelected] = useState<number | null>(null);
+  const [removing, setRemoving] = useState<number | null>(null);
 
   const eq = config?.eq;
+  // Shrink the node out, then drop the band.
   const del = (i: number) => {
-    if (!eq) return;
-    update({ eq: { ...eq, bands: eq.bands.filter((_, k) => k !== i) } });
+    if (!eq || removing != null) return;
     setSelected(null);
+    setRemoving(i);
+    window.setTimeout(() => {
+      const cur = useStore.getState().config?.eq;
+      if (cur) update({ eq: { ...cur, bands: cur.bands.filter((_, k) => k !== i) } });
+      setRemoving(null);
+    }, 150);
   };
 
   useEffect(() => {
@@ -444,14 +472,14 @@ export function ParametricEq() {
         </div>
 
         <div className={cn("space-y-4 px-5 py-4", !eq.enabled && "[&_.stroke-brand]:opacity-50")}>
-          <Graph eq={eq} selected={selected} onSelect={setSelected} />
+          <Graph eq={eq} selected={selected} onSelect={setSelected} removing={removing} />
           <div className="flex min-h-[60px] items-center">
             {selected != null && eq.bands[selected] ? (
-              <div className="w-full">
+              <div key={selected} className="w-full animate-fade">
                 <BandEditor eq={eq} index={selected} onDelete={() => del(selected)} />
               </div>
             ) : (
-              <div className="flex w-full flex-wrap items-center gap-1.5">
+              <div className="flex w-full animate-fade flex-wrap items-center gap-1.5">
                 {eq.bands.map((b, i) => (
                   <button
                     key={i}

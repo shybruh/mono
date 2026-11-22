@@ -1,4 +1,7 @@
 import { create } from "zustand";
+import { flushSync } from "react-dom";
+import { centreOf, zoomTransition } from "./motion";
+import { coverUrl, preload } from "./cover";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
   api,
@@ -108,7 +111,7 @@ interface Store {
   smartEdit: import("./api").SmartCrate | null;
   setSmartEdit: (c: import("./api").SmartCrate | null) => void;
   theater: boolean;
-  toggleTheater: (v?: boolean) => void;
+  toggleTheater: (v?: boolean, origin?: { x: number; y: number }) => void;
   fullscreen: boolean;
   toggleFullscreen: (v?: boolean) => void;
 
@@ -216,10 +219,16 @@ async function sendDiscordArt(meta: TrackMeta) {
   api.discordArt(meta.path, url).catch(() => {});
 }
 
+/** Theater grows out of (and shrinks back into) the now-playing cover. */
+function theaterOrigin() {
+  return centreOf(document.querySelector('[aria-label="Theater"]'));
+}
+
 async function loadCover(meta: TrackMeta) {
   const path = meta.path;
   const req = ++coverReq;
-  let url = await api.cover(path).catch(() => null);
+  let url = await preload(coverUrl(path, 1200, meta.mtime));
+  const local = !!url;
   if (req !== coverReq) return;
   useStore.setState({ cover: url });
   const online = await enrich(meta, req);
@@ -231,7 +240,7 @@ async function loadCover(meta: TrackMeta) {
   let hc: typeof coverHC = null;
   if (url) {
     try {
-      hc = await accentFromImage(url);
+      hc = await accentFromImage(local ? coverUrl(path, 64, meta.mtime) : url);
     } catch {
       hc = null;
     }
@@ -278,10 +287,11 @@ export const useStore = create<Store>((set, get) => ({
   settings: false,
   tagTarget: null,
   theater: false,
-  toggleTheater: (v) => {
+  toggleTheater: (v, origin) => {
     const theater = v ?? !get().theater;
+    if (theater === get().theater) return;
     if (!theater && get().fullscreen) get().toggleFullscreen(false);
-    set({ theater });
+    zoomTransition(() => flushSync(() => set({ theater })), theater ? "in" : "out", origin ?? theaterOrigin());
   },
   fullscreen: false,
   // Fullscreen is theater mode with the window filling the screen and all
