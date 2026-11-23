@@ -113,7 +113,8 @@ function Graph({
   const gy = (db: number) => h / 2 - (db / RANGE) * (h / 2 - pad);
   const yg = (y: number) => Math.max(-RANGE, Math.min(RANGE, ((h / 2 - y) / (h / 2 - pad)) * RANGE));
 
-  const total = useMemo(() => totalResponse(eq, CURVE), [eq]);
+  // The curve shows the bands alone (as nodes sit at their own gain); pre-amp is a separate output gain.
+  const total = useMemo(() => totalResponse({ ...eq, preamp: 0 }, CURVE), [eq]);
   const path = (dbs: number[]) =>
     dbs.map((d, i) => `${i ? "L" : "M"}${fx(CURVE[i]).toFixed(1)},${gy(Math.max(-RANGE - 6, Math.min(RANGE + 6, d))).toFixed(1)}`).join("");
   const sel = selected != null ? eq.bands[selected] : null;
