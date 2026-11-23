@@ -126,6 +126,7 @@ function Volume() {
   const last = useRef(0.8);
   const [, force] = useState(0);
   const Icon = volume <= 0.001 ? VolumeX : volume < 0.5 ? Volume1 : Volume2;
+  const saveTimer = useRef<number | undefined>(undefined);
   const set = (v: number, commit: boolean) => {
     useStore.setState((s) => ({ player: { ...s.player, volume: v } }));
     api.setVolume(v);
@@ -133,7 +134,21 @@ function Volume() {
     force((n) => n + 1);
   };
   return (
-    <div className="flex items-center gap-2 text-muted-foreground">
+    <div
+      className="flex items-center gap-2 text-muted-foreground"
+      // Scroll to change volume: 2 % per mouse-wheel notch (trackpads move it
+      // smoothly in proportion), saved once the scrolling stops.
+      onWheel={(e) => {
+        if (!e.deltaY) return;
+        const notches = e.deltaMode === 1 ? e.deltaY / 3 : e.deltaMode === 2 ? e.deltaY * 10 : e.deltaY / 100;
+        const cur = useStore.getState().player.volume;
+        const v = Math.round(Math.min(1, Math.max(0, Math.min(1, cur) - notches * 0.02)) * 1000) / 1000;
+        if (v === cur) return;
+        set(v, false);
+        window.clearTimeout(saveTimer.current);
+        saveTimer.current = window.setTimeout(() => useStore.getState().setConfig({ volume: v }), 400);
+      }}
+    >
       <button
         aria-label="Mute"
         className="rounded p-1 hover:text-foreground [&_svg]:size-4"
@@ -147,7 +162,7 @@ function Volume() {
         <Icon />
       </button>
       <Slider
-        className="w-24"
+        className="w-24 [&_[data-slot=slider-range]]:bg-brand [&_[data-slot=slider-thumb]]:border-brand [&_[data-slot=slider-thumb]]:bg-brand [&_[data-slot=slider-thumb]]:ring-brand/30"
         min={0}
         max={1}
         step={0.01}

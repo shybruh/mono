@@ -6,6 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ## [Unreleased]
 
 ### Changed
+- **Volume follows the accent and the scroll wheel.** The volume slider takes the accent colour (from the cover art, when that's on), and scrolling over it changes the volume: 2 % per notch, smoothly on a trackpad.
 - **One Mac download.** The Mac app is now a single universal build that runs natively on both Apple Silicon and Intel, instead of separate downloads. Picking the Intel one on an Apple Silicon Mac ran it through Rosetta, which on newer macOS could crash at launch.
 
 ## [0.5.0] - 2026-11-23
