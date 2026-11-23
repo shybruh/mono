@@ -3,7 +3,9 @@ import {
   ArrowDownToLine,
   AudioWaveform,
   Loader2,
+  Menu,
   Minus,
+  Search,
   PictureInPicture2,
   Settings2,
   Square,
@@ -14,6 +16,7 @@ import { installUpdate, useUpdater } from "@/lib/updater";
 import { api } from "@/lib/api";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { useCompact } from "@/hooks/useCompact";
 
 const win = getCurrentWindow();
 
@@ -75,6 +78,31 @@ export function TitleBar() {
   const selected = useStore((s) => s.selected);
 
   const tagPath = (selected != null && list[selected]?.path) || track?.meta.path || null;
+  const compact = useCompact();
+
+  if (compact) {
+    return (
+      <div className="flex h-11 shrink-0 items-center justify-between border-b px-1.5">
+        <div className="flex items-center gap-1">
+          <IconBtn label="Crates" onClick={() => useStore.getState().setNavOpen(true)} className="size-9">
+            <Menu />
+          </IconBtn>
+          <span className="text-[14px] font-medium tracking-tight">mono</span>
+        </div>
+        <div className="flex items-center gap-0.5">
+          <IconBtn label="Search" onClick={() => useStore.getState().setPalette(true)} className="size-9">
+            <Search />
+          </IconBtn>
+          <IconBtn label="Visualiser" active={vizOpen} onClick={() => useStore.getState().toggleViz()} className="size-9">
+            <AudioWaveform />
+          </IconBtn>
+          <IconBtn label="Settings" onClick={() => useStore.getState().setSettings(true)} className="size-9">
+            <Settings2 />
+          </IconBtn>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

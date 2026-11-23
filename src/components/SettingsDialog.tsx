@@ -29,12 +29,12 @@ type Page = (typeof PAGES)[number]["id"];
 
 function Row({ label, detail, children }: { label: string; detail?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="flex min-h-12 items-center justify-between gap-6 px-4 py-2.5">
+    <div className="flex min-h-12 items-center justify-between gap-6 px-4 py-2.5 max-sm:flex-wrap max-sm:gap-x-3 max-sm:gap-y-2 max-sm:px-3">
       <div className="min-w-0">
         <div className="text-[13px]">{label}</div>
         {detail && <div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">{detail}</div>}
       </div>
-      <div className="flex shrink-0 items-center gap-3">{children}</div>
+      <div className="flex shrink-0 items-center gap-3 max-sm:shrink">{children}</div>
     </div>
   );
 }
@@ -361,14 +361,14 @@ export function SettingsDialog() {
 
   return (
     <Dialog open={open} onOpenChange={(v) => useStore.getState().setSettings(v)}>
-      <DialogContent className="flex h-[min(640px,85vh)] gap-0 overflow-hidden p-0 sm:max-w-4xl">
+      <DialogContent className="flex h-[min(640px,85vh)] gap-0 overflow-hidden p-0 max-sm:flex-col sm:max-w-4xl">
         <DialogDescription className="sr-only">Mono preferences</DialogDescription>
-        <nav className="flex w-52 shrink-0 flex-col gap-0.5 border-r bg-muted/30 p-3">
-          <DialogTitle className="px-2.5 pt-1 pb-3 text-sm font-medium">Settings</DialogTitle>
-          <div className="relative flex flex-col gap-0.5">
+        <nav className="flex w-52 shrink-0 flex-col gap-0.5 border-r bg-muted/30 p-3 max-sm:w-full max-sm:border-r-0 max-sm:border-b max-sm:p-2 max-sm:pr-10">
+          <DialogTitle className="px-2.5 pt-1 pb-3 text-sm font-medium max-sm:sr-only">Settings</DialogTitle>
+          <div className="relative flex flex-col gap-0.5 max-sm:flex-row max-sm:overflow-x-auto max-sm:[scrollbar-width:none]">
             <span
               aria-hidden
-              className="absolute inset-x-0 top-0 h-8 rounded-md bg-accent transition-transform duration-300 ease-[var(--ease-out-expo)]"
+              className="absolute inset-x-0 top-0 h-8 rounded-md bg-accent transition-transform duration-300 ease-[var(--ease-out-expo)] max-sm:hidden"
               style={{ transform: `translateY(${PAGES.findIndex((p) => p.id === page) * 34}px)` }}
             />
           {PAGES.map((p) => (
@@ -376,8 +376,8 @@ export function SettingsDialog() {
               key={p.id}
               onClick={() => setPage(p.id)}
               className={cn(
-                "relative flex h-8 items-center gap-2.5 rounded-md px-2.5 text-[13px] text-muted-foreground hover:text-foreground active:scale-100 [&_svg]:size-4",
-                page === p.id && "text-foreground",
+                "relative flex h-8 items-center gap-2.5 rounded-md px-2.5 text-[13px] text-muted-foreground hover:text-foreground active:scale-100 max-sm:shrink-0 max-sm:gap-1.5 [&_svg]:size-4",
+                page === p.id && "text-foreground max-sm:bg-accent",
               )}
             >
               <p.icon />
@@ -388,10 +388,10 @@ export function SettingsDialog() {
           </div>
         </nav>
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex h-14 shrink-0 items-center border-b px-6 pr-12">
+          <div className="flex h-14 shrink-0 items-center border-b px-6 pr-12 max-sm:hidden">
             <h2 key={page} className="animate-fade text-[15px] font-medium">{current.label}</h2>
           </div>
-          <div key={page} className="min-h-0 flex-1 animate-rise space-y-6 overflow-y-auto px-6 py-5 [scrollbar-gutter:stable]">
+          <div key={page} className="min-h-0 flex-1 animate-rise space-y-6 overflow-y-auto px-6 py-5 [scrollbar-gutter:stable] max-sm:px-3 max-sm:py-4">
             {page === "library" && <LibraryPage />}
             {page === "playback" && <PlaybackPage />}
             {page === "sound" && <SoundPage />}

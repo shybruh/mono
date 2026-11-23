@@ -1,5 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+/* Explicit so builds rooted in another folder still find the app's classes. */
+@source "./";
 
 @custom-variant dark (&:is(.dark *));
 

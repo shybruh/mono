@@ -134,6 +134,9 @@ interface Store {
   unshuffled: string[] | null;
   queueOpen: boolean;
   eqOpen: boolean;
+  /** Crates drawer on phone-width layouts. */
+  navOpen: boolean;
+  setNavOpen: (v: boolean) => void;
   /** Track list or album grid. */
   layout: "list" | "albums";
   setLayout: (l: "list" | "albums") => void;
@@ -273,6 +276,8 @@ export const useStore = create<Store>((set, get) => ({
   unshuffled: null,
   queueOpen: false,
   eqOpen: false,
+  navOpen: false,
+  setNavOpen: (v) => set({ navOpen: v }),
   layout: loadJSON<"list" | "albums">("mono.layout.mode", "list"),
   setLayout: (l) => {
     saveJSON("mono.layout.mode", l);

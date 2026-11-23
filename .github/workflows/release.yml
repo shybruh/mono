@@ -124,6 +124,20 @@ jobs:
           includeUpdaterJson: true
           args: ${{ matrix.args }}
 
+      # Newer macOS no longer exports these; importing any of them stops the
+      # app from launching. Failing here keeps the release a draft.
+      - name: Check for removed macOS APIs
+        if: startsWith(matrix.platform, 'macos')
+        shell: bash
+        run: |
+          bin=$(ls src-tauri/target/*/release/mono | head -n 1)
+          removed='_(CGAcquireDisplayFadeReservation|CGDisplayFade|CGReleaseDisplayFadeReservation|CGRestorePermanentDisplayConfiguration|CGShieldingWindowLevel|SSLGetEnabledCiphers|SSLGetNumberEnabledCiphers|SSLSetPeerID|SSLSetSessionTicketsEnabled)$'
+          if nm -u "$bin" | grep -E "$removed"; then
+            echo "::error::$bin imports macOS functions that newer macOS no longer provides"
+            exit 1
+          fi
+          echo "No removed macOS APIs imported by $bin"
+
   publish:
     needs: [create-release, build]
     runs-on: ubuntu-latest

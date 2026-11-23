@@ -9,3 +9,7 @@ dist
 
 src-tauri/target
 src-tauri/gen/schemas
+
+# Local only: the website and editor tooling
+web/
+.claude/

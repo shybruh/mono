@@ -178,12 +178,12 @@ export function Transport() {
   const theater = useStore((s) => s.theater);
   const shuffle = useStore((s) => s.shuffle);
   return (
-    <div className="relative z-10 shrink-0 border-t bg-background px-4 pb-3.5 pt-5">
+    <div className="relative z-10 shrink-0 border-t bg-background px-4 pb-3.5 pt-5 max-sm:px-3 max-sm:pt-3">
       <SeekBar />
       {/* Symmetric cluster centred under the waveform; volume pinned right. */}
-      <div className="mt-3.5 grid grid-cols-[1fr_auto_1fr] items-center">
-        <div />
-        <div className="flex items-center gap-2.5">
+      <div className="mt-3.5 grid grid-cols-[1fr_auto_1fr] items-center max-sm:mt-2 max-sm:flex max-sm:justify-between">
+        <div className="max-sm:hidden" />
+        <div className="flex items-center gap-2.5 max-sm:gap-1.5">
           <button
             aria-label="Shuffle"
             title="Shuffle (S)"
@@ -192,11 +192,15 @@ export function Transport() {
           >
             <Shuffle />
           </button>
-          <LoopButtons />
-          <span className="mx-1 h-6 w-px bg-border" />
+          <span className="contents max-sm:hidden">
+            <LoopButtons />
+            <span className="mx-1 h-6 w-px bg-border" />
+          </span>
           <TransportButtons />
-          <span className="mx-1 h-6 w-px bg-border" />
-          <SpeedPitch />
+          <span className="contents max-sm:hidden">
+            <span className="mx-1 h-6 w-px bg-border" />
+            <SpeedPitch />
+          </span>
           <button
             aria-label={`Repeat ${repeat}`}
             title={`Repeat ${repeat}`}
@@ -208,7 +212,7 @@ export function Transport() {
             </span>
           </button>
         </div>
-        <div className="flex items-center justify-end gap-3">
+        <div className="flex items-center justify-end gap-3 max-sm:gap-1">
           <EqButton />
           <button
             aria-label="Queue"
@@ -229,7 +233,9 @@ export function Transport() {
           >
             <MicVocal />
           </button>
-          <Volume />
+          <span className="contents max-sm:hidden">
+            <Volume />
+          </span>
         </div>
       </div>
     </div>

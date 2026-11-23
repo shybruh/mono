@@ -36,7 +36,7 @@ export function NowPlaying() {
   const ch = m?.channels === 1 ? "Mono" : m?.channels === 2 ? "Stereo" : m?.channels ? `${m.channels} ch` : null;
 
   return (
-    <div className="relative flex items-end gap-4 border-b p-4">
+    <div className="relative flex items-end gap-4 border-b p-4 max-sm:items-center max-sm:gap-3 max-sm:p-3">
       <div className="absolute top-3 right-3 flex gap-0.5 rounded-md border p-0.5">
         {(["list", "albums"] as const).map((l) => (
           <button
@@ -56,20 +56,20 @@ export function NowPlaying() {
       <button
         aria-label="Theater"
         onClick={(e) => useStore.getState().toggleTheater(true, centreOf(e.currentTarget))}
-        className="size-24 shrink-0 overflow-hidden rounded-lg bg-brand-wash transition-transform hover:scale-[1.03]"
+        className="size-24 shrink-0 overflow-hidden rounded-lg bg-brand-wash transition-transform hover:scale-[1.03] max-sm:size-16"
       >
         {cover && <img key={cover} src={cover} alt="" className="size-full animate-fade object-cover" draggable={false} />}
       </button>
-      <div key={m?.path ?? ""} className="min-w-0 flex-1 animate-rise">
+      <div key={m?.path ?? ""} className="min-w-0 flex-1 animate-rise max-sm:pr-14">
         <div className="truncate text-[11px] text-brand">{source}</div>
-        <div className="mt-0.5 truncate text-lg font-medium leading-tight">
+        <div className="mt-0.5 truncate text-lg font-medium leading-tight max-sm:text-base">
           {m ? m.title : <span className="text-muted-foreground">—</span>}
         </div>
         <div className="truncate text-muted-foreground">
           {m ? [m.artist, m.album].filter(Boolean).join(" — ") || basename(m.path) : " "}
         </div>
         {m && (
-          <div className="mt-2 flex flex-wrap gap-1.5">
+          <div className="mt-2 flex flex-wrap gap-1.5 max-sm:hidden">
             {m.bitrate ? <Chip>{m.bitrate} kbps</Chip> : null}
             {khz && <Chip>{khz}</Chip>}
             {m.bitDepth ? <Chip>{m.bitDepth}-bit</Chip> : null}

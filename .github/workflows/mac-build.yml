@@ -1,0 +1,61 @@
+# Builds Mac apps on demand, without making a release: Actions → "Mac build"
+# → Run workflow. The .dmg files appear under Artifacts on the run's page.
+# They aren't notarised, so macOS asks for confirmation on first launch.
+
+name: Mac build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [x86_64-apple-darwin, aarch64-apple-darwin]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "src-tauri -> target"
+          key: ${{ matrix.target }}
+
+      - run: pnpm install --frozen-lockfile
+
+      # Version from the newest changelog release; no updater bundles, so no signing key needed.
+      - name: Build
+        shell: bash
+        run: |
+          version=$(grep -m1 -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+          pnpm tauri build --target ${{ matrix.target }} --bundles dmg \
+            -c "{\"version\":\"$version\",\"bundle\":{\"createUpdaterArtifacts\":false}}"
+
+      - name: Check for removed macOS APIs
+        shell: bash
+        run: |
+          bin=src-tauri/target/${{ matrix.target }}/release/mono
+          removed='_(CGAcquireDisplayFadeReservation|CGDisplayFade|CGReleaseDisplayFadeReservation|CGRestorePermanentDisplayConfiguration|CGShieldingWindowLevel|SSLGetEnabledCiphers|SSLGetNumberEnabledCiphers|SSLSetPeerID|SSLSetSessionTicketsEnabled)$'
+          if nm -u "$bin" | grep -E "$removed"; then
+            echo "::error::$bin imports macOS functions that newer macOS no longer provides"
+            exit 1
+          fi
+          echo "No removed macOS APIs imported"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mono-${{ matrix.target == 'x86_64-apple-darwin' && 'mac-intel' || 'mac-apple-silicon' }}
+          path: src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+          if-no-files-found: error

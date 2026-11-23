@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/context-menu";
 import { cn } from "@/lib/utils";
 import { ResizeHandle, startDrag } from "@/hooks/useDragSize";
+import { useCompact } from "@/hooks/useCompact";
 
 const ROW = 28;
 // Header padding: px-3 + 2 px row accent border + the list's 12 px scrollbar gutter.
@@ -92,17 +93,22 @@ export function TrackList() {
   const analysing = useAnalysis();
   const missing = useMemo(() => list.filter(needsInfo).length, [list]);
   const selSet = useMemo(() => new Set(selection), [selection]);
-  const { cols, visible, widths, toggle, setWidth, reset } = useColumns();
+  const columns = useColumns();
+  const { visible, widths, toggle, setWidth, reset } = columns;
+  const compact = useCompact();
+  // Phones: number, title (taking the room) and time only.
+  const cols = compact ? columns.cols.filter((c) => c.id === "num" || c.id === "title" || c.id === "time") : columns.cols;
   const header = useRef<HTMLDivElement>(null);
 
   // Time (when shown) is pinned right with spare space before it; flexible
   // text columns shrink toward their minimum when the window is narrow.
   const hasTime = cols.some((c) => c.id === "time");
-  const track = (c: ColumnDef) => (c.flex ? `minmax(${c.min}px,${widths[c.id]}px)` : `${widths[c.id]}px`);
+  const track = (c: ColumnDef) =>
+    compact && c.id === "title" ? "minmax(0,1fr)" : c.flex ? `minmax(${c.min}px,${widths[c.id]}px)` : `${widths[c.id]}px`;
   const template = {
     gridTemplateColumns: [
       ...cols.filter((c) => c.id !== "time").map(track),
-      "minmax(0,1fr)",
+      compact ? "0px" : "minmax(0,1fr)",
       ...(hasTime ? [track(COLUMN.time)] : []),
     ].join(" "),
   };
@@ -200,7 +206,7 @@ export function TrackList() {
                     {c.label}
                     {active && <Arrow className="size-3 shrink-0" />}
                   </button>
-                  {handle(c)}
+                  {!compact && handle(c)}
                 </span>
               );
             })}
@@ -267,6 +273,8 @@ export function TrackList() {
                         }
                       }}
                       onDoubleClick={() => useStore.getState().playFromList(i)}
+                      // Touch has no double-click: a tap plays.
+                      onClick={compact ? () => useStore.getState().playFromList(i) : undefined}
                       className={cn(
                         "absolute inset-x-0 grid cursor-default items-center border-l-2 border-transparent px-3 font-mono text-[12px] select-none",
                         chosen && !playing && "bg-accent/70",

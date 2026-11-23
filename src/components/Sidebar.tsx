@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { ChevronRight, Folder, FolderOpen, FolderPlus, History, ListFilter, ListMusic, Plus } from "lucide-react";
 import { newSmartCrate } from "@/lib/smartCrate";
@@ -13,6 +13,8 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { ResizeHandle, startDrag, useSizes } from "@/hooks/useDragSize";
+import { useCompact } from "@/hooks/useCompact";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 
 export async function addFolder() {
   const dir = await open({ directory: true, multiple: false });
@@ -149,10 +151,27 @@ function SmartCrates() {
 }
 
 export function Sidebar() {
-  const crates = useStore((s) => s.crates);
-  const current = useStore((s) => viewKey(s.view));
-  const historyOn = useStore((s) => s.config?.history ?? true);
   const [sizes, setSize] = useSizes("mono.layout.sidebar", { sidebar: 224 });
+  const compact = useCompact();
+  const navOpen = useStore((s) => s.navOpen);
+  const view = useStore((s) => viewKey(s.view));
+
+  // Phones: the crates live in a drawer, which closes once a view is picked.
+  useEffect(() => {
+    useStore.getState().setNavOpen(false);
+  }, [view]);
+
+  if (compact) {
+    return (
+      <Sheet open={navOpen} onOpenChange={(v) => useStore.getState().setNavOpen(v)}>
+        <SheetContent side="left" className="w-72 gap-0 p-0 pt-10">
+          <SheetTitle className="sr-only">Crates</SheetTitle>
+          <SheetDescription className="sr-only">Crates, smart crates and history</SheetDescription>
+          <SidebarContent />
+        </SheetContent>
+      </Sheet>
+    );
+  }
 
   return (
     <aside className="relative flex shrink-0 flex-col border-r" style={{ width: sizes.sidebar }}>
@@ -162,6 +181,17 @@ export function Sidebar() {
         }
         onDoubleClick={() => setSize("sidebar", 224)}
       />
+      <SidebarContent />
+    </aside>
+  );
+}
+
+function SidebarContent() {
+  const crates = useStore((s) => s.crates);
+  const current = useStore((s) => viewKey(s.view));
+  const historyOn = useStore((s) => s.config?.history ?? true);
+
+  return (
       <ScrollArea className="min-h-0 flex-1">
         <div className="p-2">
           <div className="flex h-7 items-center justify-between px-1.5 text-[11px] text-muted-foreground/70">
@@ -200,6 +230,5 @@ export function Sidebar() {
           )}
         </div>
       </ScrollArea>
-    </aside>
   );
 }

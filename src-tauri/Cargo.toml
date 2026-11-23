@@ -33,7 +33,9 @@ realfft = "3.5.1"
 notify-debouncer-mini = "0.7.0"
 discord-rich-presence = "1.1.0"
 tauri-plugin-process = "2"
-tauri-plugin-updater = { version = "2", default-features = false, features = ["native-tls", "zip"] }
+# rustls, not native-tls: on macOS native-tls uses SecureTransport, whose
+# functions newer macOS releases no longer export (the app then won't launch).
+tauri-plugin-updater = { version = "2", default-features = false, features = ["rustls-tls", "zip"] }
 tauri-plugin-single-instance = "2"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
 

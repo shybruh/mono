@@ -246,7 +246,7 @@ function Graph({
   return (
     <div
       ref={box}
-      className="relative h-[320px] overflow-hidden rounded-lg border bg-background/40 select-none"
+      className="relative h-[320px] overflow-hidden rounded-lg border bg-background/40 select-none max-sm:h-[220px]"
       onDoubleClick={(e) => {
         if (eq.bands.length >= MAX_BANDS || (e.target as Element).closest("[data-node]")) return;
         const { x, y } = local(e);
@@ -559,13 +559,13 @@ export function ParametricEq() {
   return (
     <Dialog open={open} onOpenChange={(v) => useStore.getState().setEqOpen(v)}>
       <DialogContent className="gap-0 p-0 sm:max-w-[960px]">
-        <div className="flex items-center justify-between gap-4 border-b px-5 py-3">
+        <div className="flex items-center justify-between gap-4 border-b px-5 py-3 max-sm:flex-wrap max-sm:gap-x-3 max-sm:gap-y-2 max-sm:px-3">
           <div className="flex items-center gap-3">
             <DialogTitle className="text-sm font-medium">Equaliser</DialogTitle>
             <DialogDescription className="sr-only">Parametric equaliser</DialogDescription>
             <Switch checked={eq.enabled} onCheckedChange={(v) => update({ eq: { ...eq, enabled: v } })} />
           </div>
-          <div className="mr-8 flex items-center gap-3">
+          <div className="mr-8 flex items-center gap-3 max-sm:order-last max-sm:mr-0 max-sm:w-full max-sm:justify-between">
             <AbSwitch eq={eq} onSwitch={() => setSelected(null)} />
             <div className="h-5 w-px bg-border" />
             <div className="flex items-center gap-1">
@@ -623,7 +623,7 @@ export function ParametricEq() {
           </div>
         </div>
 
-        <div className={cn("space-y-4 px-5 py-4", !eq.enabled && "[&_.stroke-brand]:opacity-50")}>
+        <div className={cn("space-y-4 px-5 py-4 max-sm:px-3", !eq.enabled && "[&_.stroke-brand]:opacity-50")}>
           <Graph eq={eq} selected={selected} onSelect={setSelected} removing={removing} />
           <div className="flex min-h-[60px] items-center">
             {selected != null && eq.bands[selected] ? (
@@ -651,7 +651,7 @@ export function ParametricEq() {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-6 border-t px-5 py-4">
+        <div className="grid grid-cols-3 gap-6 border-t px-5 py-4 max-sm:grid-cols-1 max-sm:gap-4 max-sm:px-3">
           <label className="flex flex-col gap-2">
             <span className="flex justify-between text-[12px] text-muted-foreground">
               Pre-amp
