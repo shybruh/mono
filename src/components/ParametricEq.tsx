@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Power, Trash2 } from "lucide-react";
+import { Copy, Power, Save, Trash2 } from "lucide-react";
 import { api, type Config } from "@/lib/api";
 import { useStore } from "@/lib/store";
 import { useMeterCanvas, useMeters } from "@/hooks/useMeters";
@@ -17,13 +17,16 @@ import {
   logFreqs,
   newBand,
   parseFreq,
+  sameCurve,
   totalResponse,
   type BandKind,
   type EqBand,
+  type EqPreset,
   type EqSettings,
 } from "@/lib/eq";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectLabel, SelectGroup, SelectSeparator, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
@@ -53,6 +56,118 @@ function update(patch: Partial<Config>) {
     const cur = useStore.getState().config;
     if (cur) api.updateConfig({ eq: cur.eq, crossfeed: cur.crossfeed, crossfade: cur.crossfade });
   }, 50);
+}
+
+function savePresets(eqPresets: EqPreset[]) {
+  const c = useStore.getState().config;
+  if (!c) return;
+  useStore.setState({ config: { ...c, eqPresets } });
+  api.updateConfig({ eqPresets });
+}
+
+type Curve = Pick<EqSettings, "preamp" | "bands">;
+/** A/B compare: the slot not being edited. Lives for the session, like the plug-in it's modelled on. */
+const ab: { slot: "a" | "b"; other: Curve | null } = { slot: "a", other: null };
+
+function SavePreset({ eq, initial }: { eq: EqSettings; initial: string }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState(initial);
+  const save = () => {
+    const n = name.trim();
+    if (!n) return;
+    const list = useStore.getState().config?.eqPresets ?? [];
+    const entry: EqPreset = { name: n, preamp: eq.preamp, bands: structuredClone(eq.bands) };
+    const at = list.findIndex((p) => p.name.toLowerCase() === n.toLowerCase());
+    savePresets(at >= 0 ? list.map((p, i) => (i === at ? entry : p)) : [...list, entry]);
+    setOpen(false);
+  };
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(v) => {
+        setOpen(v);
+        if (v) setName(initial);
+      }}
+    >
+      <PopoverTrigger asChild>
+        <button title="Save preset" className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground [&_svg]:size-4">
+          <Save />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-64 p-2">
+        <form
+          className="flex gap-1.5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            save();
+          }}
+        >
+          <input
+            autoFocus
+            value={name}
+            placeholder="Preset name"
+            onChange={(e) => setName(e.target.value)}
+            className="h-8 min-w-0 flex-1 rounded-md border bg-transparent px-2 text-[12px] outline-none focus:border-ring"
+          />
+          <button
+            type="submit"
+            disabled={!name.trim()}
+            className="h-8 rounded-md bg-brand px-3 text-[12px] font-medium text-brand-foreground hover:bg-brand-strong disabled:opacity-40"
+          >
+            Save
+          </button>
+        </form>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function AbSwitch({ eq, onSwitch }: { eq: EqSettings; onSwitch: () => void }) {
+  const [slot, setSlot] = useState(ab.slot);
+  const [copied, setCopied] = useState(0);
+  const go = (s: "a" | "b") => {
+    if (s === ab.slot) return;
+    const cur: Curve = { preamp: eq.preamp, bands: eq.bands };
+    const next = ab.other ?? { preamp: eq.preamp, bands: structuredClone(eq.bands) };
+    ab.other = cur;
+    ab.slot = s;
+    setSlot(s);
+    update({ eq: { ...eq, preamp: next.preamp, bands: next.bands } });
+    onSwitch();
+  };
+  const other = slot === "a" ? "B" : "A";
+  return (
+    <div className="flex items-center gap-1">
+      <div className="relative flex rounded-md border p-0.5">
+        <span
+          className="absolute inset-y-0.5 left-0.5 w-7 rounded-[5px] bg-accent transition-transform duration-200 ease-[var(--ease-out-expo)]"
+          style={{ transform: `translateX(${slot === "a" ? 0 : 28}px)` }}
+        />
+        {(["a", "b"] as const).map((s) => (
+          <button
+            key={s}
+            onClick={() => go(s)}
+            className={cn(
+              "relative h-6 w-7 font-mono text-[11px] font-semibold uppercase",
+              slot === s ? "text-foreground" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+      <button
+        title={`Copy ${slot.toUpperCase()} to ${other}`}
+        onClick={() => {
+          ab.other = { preamp: eq.preamp, bands: structuredClone(eq.bands) };
+          setCopied((n) => n + 1);
+        }}
+        className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground [&_svg]:size-4"
+      >
+        <Copy key={copied} className={copied ? "animate-pop" : undefined} />
+      </button>
+    </div>
+  );
 }
 
 function useSize(ref: React.RefObject<HTMLElement | null>) {
@@ -436,9 +551,10 @@ export function ParametricEq() {
   });
 
   if (!config || !eq) return null;
-  const preset = Object.entries(PRESETS).find(
-    ([, bands]) => JSON.stringify(bands) === JSON.stringify(eq.bands),
-  )?.[0];
+  const saved = config.eqPresets ?? [];
+  const mine = saved.find((p) => sameCurve(p, eq));
+  const builtin = Object.entries(PRESETS).find(([, bands]) => JSON.stringify(bands) === JSON.stringify(eq.bands))?.[0];
+  const preset = mine ? `u:${mine.name}` : builtin ? `b:${builtin}` : "";
 
   return (
     <Dialog open={open} onOpenChange={(v) => useStore.getState().setEqOpen(v)}>
@@ -449,26 +565,61 @@ export function ParametricEq() {
             <DialogDescription className="sr-only">Parametric equaliser</DialogDescription>
             <Switch checked={eq.enabled} onCheckedChange={(v) => update({ eq: { ...eq, enabled: v } })} />
           </div>
-          <div className="mr-8 flex items-center gap-2">
-            <span className="text-[12px] text-muted-foreground">Preset</span>
-            <Select
-              value={preset ?? ""}
-              onValueChange={(name) => {
-                update({ eq: { ...eq, enabled: true, bands: structuredClone(PRESETS[name]) } });
-                setSelected(null);
-              }}
-            >
-              <SelectTrigger size="sm" className="w-36">
-                <SelectValue placeholder="Custom" />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.keys(PRESETS).map((name) => (
-                  <SelectItem key={name} value={name}>
-                    {name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="mr-8 flex items-center gap-3">
+            <AbSwitch eq={eq} onSwitch={() => setSelected(null)} />
+            <div className="h-5 w-px bg-border" />
+            <div className="flex items-center gap-1">
+              <Select
+                value={preset}
+                onValueChange={(v) => {
+                  const name = v.slice(2);
+                  if (v.startsWith("u:")) {
+                    const p = saved.find((x) => x.name === name);
+                    if (p) update({ eq: { ...eq, enabled: true, preamp: p.preamp, bands: structuredClone(p.bands) } });
+                  } else {
+                    update({ eq: { ...eq, enabled: true, bands: structuredClone(PRESETS[name]) } });
+                  }
+                  setSelected(null);
+                }}
+              >
+                <SelectTrigger size="sm" className="w-40">
+                  <SelectValue placeholder="Custom" />
+                </SelectTrigger>
+                <SelectContent>
+                  {saved.length > 0 && (
+                    <>
+                      <SelectGroup>
+                        <SelectLabel>Saved</SelectLabel>
+                        {saved.map((p) => (
+                          <SelectItem key={p.name} value={`u:${p.name}`}>
+                            {p.name}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                      <SelectSeparator />
+                    </>
+                  )}
+                  <SelectGroup>
+                    {saved.length > 0 && <SelectLabel>Built-in</SelectLabel>}
+                    {Object.keys(PRESETS).map((name) => (
+                      <SelectItem key={name} value={`b:${name}`}>
+                        {name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <SavePreset eq={eq} initial={mine?.name ?? ""} />
+              {mine && (
+                <button
+                  title="Delete preset"
+                  onClick={() => savePresets(saved.filter((p) => p !== mine))}
+                  className="animate-pop rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground [&_svg]:size-4"
+                >
+                  <Trash2 />
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

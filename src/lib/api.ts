@@ -84,6 +84,7 @@ export interface Config {
   resume: boolean;
   smartCrates: SmartCrate[];
   eq: import("./eq").EqSettings;
+  eqPresets: import("./eq").EqPreset[];
   crossfeed: number;
   crossfade: number;
   seekStyle: "waveform" | "bar";

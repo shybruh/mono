@@ -18,6 +18,16 @@ export interface EqSettings {
   bands: EqBand[];
 }
 
+export interface EqPreset {
+  name: string;
+  preamp: number;
+  bands: EqBand[];
+}
+
+/** Same curve (bands and pre-amp), ignoring the on/off switch. */
+export const sameCurve = (a: { preamp: number; bands: EqBand[] }, b: { preamp: number; bands: EqBand[] }) =>
+  a.preamp === b.preamp && JSON.stringify(a.bands) === JSON.stringify(b.bands);
+
 export const MAX_BANDS = 16;
 export const F_MIN = 20;
 export const F_MAX = 20000;

@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+- **Your own equaliser presets.** Save the current curve (bands and pre-amp) under a name from the save button next to the preset menu; saved presets appear above the built-in ones. Saving with an existing name updates that preset, and the delete button removes the one that's loaded.
+- **A/B compare** in the equaliser: two curves you can flip between while listening, with a button that copies the current one to the other slot. B starts as a copy of A.
+
 ## [0.4.0] - 2026-11-23
 
 Mono grows from a player into a small music workstation: a queue, smart crates, BPM and key detection, a parametric equaliser and a few more ways to see your music. It also feels quicker, with lighter cover loading and motion throughout.

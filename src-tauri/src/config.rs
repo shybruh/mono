@@ -31,6 +31,8 @@ pub struct Config {
     /// Smart crate definitions (owned by the UI; evaluated by `smart_tracks`).
     pub smart_crates: serde_json::Value,
     pub eq: crate::audio::dsp::EqSettings,
+    /// Saved equaliser presets (owned by the UI): `[{ name, preamp, bands }]`.
+    pub eq_presets: serde_json::Value,
     /// Headphone crossfeed amount, 0 (off) to 1.
     pub crossfeed: f32,
     /// Crossfade between tracks in seconds; 0 = gapless.
@@ -67,6 +69,7 @@ impl Default for Config {
             resume: true,
             smart_crates: serde_json::Value::Array(Vec::new()),
             eq: Default::default(),
+            eq_presets: serde_json::Value::Array(Vec::new()),
             crossfeed: 0.0,
             crossfade: 0.0,
             seek_style: "waveform".into(),

@@ -53,7 +53,7 @@ Same MP3 in every player, Ryzen 7 5700X3D, Windows 11:
 - **Themes**, including frosted glass and your own colours; the accent can follow the album art.
 - **Queue, Play next and shuffle**, plus smart crates built from rules and an album grid.
 - **BPM and key detection** (Camelot or musical keys), sortable columns you choose, and multi-select tag editing.
-- **Parametric equaliser** (`E`) with up to 16 draggable bands over a live analyser, plus headphone crossfeed and crossfade.
+- **Parametric equaliser** (`E`) with up to 16 draggable bands over a live analyser, your own presets and A/B compare, plus headphone crossfeed and crossfade.
 - **Sleep timer** and resume where you left off, even mid-way through long mixes.
 - **Lyrics sync tool** to time your own lyrics, and lyrics in the mini player.
 - **Tag and cover-art editing**, listening history, optional Discord status with album art, and automatic updates.
