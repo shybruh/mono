@@ -5,24 +5,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-23
+
+Mono grows from a player into a small music workstation: a queue, smart crates, BPM and key detection, a parametric equaliser and a few more ways to see your music. It also feels quicker, with lighter cover loading and motion throughout.
+
 ### Performance
 - **Covers load as images, not text.** Album art used to be read at full size and sent to the window as a long text string for every cover; it's now served directly to the page, with small thumbnails made once and kept on disk. The album grid fills in faster, and large embedded art no longer has to be converted on every track change.
 - **Theme and cover-accent changes no longer restyle the whole window on every frame.** The colour change now crossfades as a single snapshot.
 - Sorting large crates is faster (one shared text comparer instead of building a new one per comparison).
 - The theater view, album grid, tag editor, equaliser, smart crate editor and settings load in their own chunks, fetched once the app is idle, so startup does less work.
-
-### Added
-- **Motion throughout**, all short (under 400 ms), and switched off when Windows' *Show animations* setting is off:
-  - Theater mode and albums zoom out of the cover you clicked and shrink back into it.
-  - Dialogs and side panels spring in; settings pages crossfade, with the highlight sliding between them.
-  - The cover and title crossfade on track change, the play button morphs between play and pause, and shuffle and repeat pop when turned on.
-  - Albums and album tracks appear in a quick stagger, and the track list rises in when you switch crates.
-  - Equaliser nodes grow on hover, pop in when added and shrink away when deleted, and the curve glides between presets.
-  - Buttons press in slightly when clicked.
-
-## [0.4.0] - 2026-11-22
-
-Mono grows from a player into a small music workstation: a queue, smart crates, BPM and key detection, a parametric equaliser and a few more ways to see your music.
 
 ### Added
 - **Queue**: *Play next* and *Add to queue* from the track list's right-click menu, an **Up next** panel (`Q`) to reorder by dragging, remove or jump to tracks, and **Shuffle** (`S`), which shuffles what's left and restores the original order when turned off.
@@ -41,8 +32,16 @@ Mono grows from a player into a small music workstation: a queue, smart crates, 
 - Mono is released under the MIT License (`LICENSE`).
 - **Album art in the Discord status**, like Spotify: the cover is shown large with the mono logo as a small badge. Discord can only display images from a public link, so the cover is looked up on iTunes (*Album art in Discord*, on by default when Discord is enabled); with no match the mono logo is shown instead.
 - Logo files in `docs/brand/`, including a 1024 px square version for the Discord application's `mono` art asset.
+- **Motion throughout**, all short (under 400 ms), and switched off when Windows' *Show animations* setting is off:
+  - Theater mode and albums zoom out of the cover you clicked and shrink back into it.
+  - Dialogs and side panels spring in; settings pages crossfade, with the highlight sliding between them.
+  - The cover and title crossfade on track change, the play button morphs between play and pause, and shuffle and repeat pop when turned on.
+  - Albums and album tracks appear in a quick stagger, and the track list rises in when you switch crates.
+  - Equaliser nodes grow on hover, pop in when added and shrink away when deleted, and the curve glides between presets.
+  - Buttons press in slightly when clicked.
 
 ### Changed
+- The equaliser is now parametric. Settings from the previous 10-band equaliser aren't carried over, so the equaliser starts flat after updating.
 - Settings is wider and split into pages (Library, Playback, Sound, Sleep timer, Appearance, Services, About) with grouped options.
 - The logo's waveform bars are now exactly centred (they sat 8 px left), in the app icon too.
 
@@ -52,6 +51,7 @@ Mono grows from a player into a small music workstation: a queue, smart crates, 
 ### Documentation
 - Shorter README: features as a single list, screenshots in a grid, a compact benchmark table and shortcuts on one line.
 - Added an AI disclosure and the license to the README.
+- README screenshots come first and include the equaliser and settings; the feature list moved below.
 
 ## [0.3.0] - 2026-11-22
 

@@ -9,30 +9,14 @@
   <img src="docs/screenshots/theater.png" alt="Mono in theater mode, showing large cover art" width="820">
 </p>
 
-## Features
-
-- **Your folders are your library.** Add a folder; its sub-folders and playlists appear as crates. No importing, and changes on disk show up on their own. Untagged files get their artist and title from the file name, with optional online lookup for albums and cover art.
-- **Gapless and even.** Mixes and live albums play without gaps, and loud and quiet tracks play at the same level (ReplayGain).
-- **Waveform seek bar, A–B loop, and separate speed and pitch control** for learning parts or digging into a section.
-- **Theater mode and synced lyrics** (`F`), fullscreen with `F11`.
-- **Search everything** with `Ctrl+K`.
-- **Meters:** spectrum, spectrogram, oscilloscope, vectorscope, peak and loudness, on `V`.
-- **Mini player** that stays on top (`M`) and scales as you resize it.
-- **Themes**, including frosted glass and your own colours; the accent can follow the album art.
-- **Queue, Play next and shuffle**, plus smart crates built from rules and an album grid.
-- **BPM and key detection** (Camelot or musical keys), sortable columns you choose, and multi-select tag editing.
-- **Parametric equaliser** (`E`) with up to 16 draggable bands over a live analyser, plus headphone crossfeed and crossfade.
-- **Sleep timer** and resume where you left off, even mid-way through long mixes.
-- **Lyrics sync tool** to time your own lyrics, and lyrics in the mini player.
-- **Tag and cover-art editing**, listening history, optional Discord status with album art, and automatic updates.
-- **Opens with your files**: set Mono as the player for your audio files, and anything you open goes to the window that's already running.
-
-Plays MP3, FLAC, WAV, OGG and M4A/AAC.
-
 <table>
   <tr>
     <td><img src="docs/screenshots/main.png" alt="Main window"></td>
+    <td><img src="docs/screenshots/equaliser.png" alt="Parametric equaliser"></td>
+  </tr>
+  <tr>
     <td><img src="docs/screenshots/visualiser.png" alt="Visualiser"></td>
+    <td><img src="docs/screenshots/settings.png" alt="Settings"></td>
   </tr>
   <tr>
     <td><img src="docs/screenshots/palette.png" alt="Command palette"></td>
@@ -56,6 +40,26 @@ Same MP3 in every player, Ryzen 7 5700X3D, Windows 11:
 ## Shortcuts
 
 `Space` play/pause · `←` `→` seek (`Shift` for 30 s) · `N` `P` next/previous · `Q` up next · `S` shuffle · `E` equaliser · `[` `]` `\` loop A/B/clear · `0` reset speed and pitch · `R` repeat · `F` theater · `F11` fullscreen · `V` visualiser · `M` mini player · `T` tags · `Ctrl+K` search · `Ctrl+,` settings
+
+## Features
+
+- **Your folders are your library.** Add a folder; its sub-folders and playlists appear as crates. No importing, and changes on disk show up on their own. Untagged files get their artist and title from the file name, with optional online lookup for albums and cover art.
+- **Gapless and even.** Mixes and live albums play without gaps, and loud and quiet tracks play at the same level (ReplayGain).
+- **Waveform seek bar, A–B loop, and separate speed and pitch control** for learning parts or digging into a section.
+- **Theater mode and synced lyrics** (`F`), fullscreen with `F11`.
+- **Search everything** with `Ctrl+K`.
+- **Meters:** spectrum, spectrogram, oscilloscope, vectorscope, peak and loudness, on `V`.
+- **Mini player** that stays on top (`M`) and scales as you resize it.
+- **Themes**, including frosted glass and your own colours; the accent can follow the album art.
+- **Queue, Play next and shuffle**, plus smart crates built from rules and an album grid.
+- **BPM and key detection** (Camelot or musical keys), sortable columns you choose, and multi-select tag editing.
+- **Parametric equaliser** (`E`) with up to 16 draggable bands over a live analyser, plus headphone crossfeed and crossfade.
+- **Sleep timer** and resume where you left off, even mid-way through long mixes.
+- **Lyrics sync tool** to time your own lyrics, and lyrics in the mini player.
+- **Tag and cover-art editing**, listening history, optional Discord status with album art, and automatic updates.
+- **Opens with your files**: set Mono as the player for your audio files, and anything you open goes to the window that's already running.
+
+Plays MP3, FLAC, WAV, OGG and M4A/AAC.
 
 ## Notes
 
