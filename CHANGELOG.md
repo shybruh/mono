@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-24
+
+Drop folders onto the window to add them, put your crates in the order you want, and a volume control that follows the cover and the scroll wheel. Macs get a single download.
+
 ### Added
 - **Drop folders to add them.** Drag a music folder from Explorer or Finder onto the window to add it as a crate; a folder that's already in your library just opens. Dropped audio files play. While you drag, a drop zone fades in over the sidebar for folders, or over the track list for audio files.
 - **Reorder crates.** Drag a folder up or down among its neighbours (a line shows where it will land), or right-click it and choose *Move up* / *Move down*. Top-level folders keep the new order in your watched-folders list; sub-folders remember theirs, and new folders slot in by name after the ones you've placed.

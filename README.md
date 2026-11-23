@@ -43,7 +43,7 @@ Same MP3 in every player, Ryzen 7 5700X3D, Windows 11:
 
 ## Features
 
-- **Your folders are your library.** Add a folder; its sub-folders and playlists appear as crates. No importing, and changes on disk show up on their own. Untagged files get their artist and title from the file name, with optional online lookup for albums and cover art.
+- **Your folders are your library.** Add a folder, or drop one onto the window; its sub-folders and playlists appear as crates, in whatever order you drag them into. No importing, and changes on disk show up on their own. Untagged files get their artist and title from the file name, with optional online lookup for albums and cover art.
 - **Gapless and even.** Mixes and live albums play without gaps, and loud and quiet tracks play at the same level (ReplayGain).
 - **Waveform seek bar, A–B loop, and separate speed and pitch control** for learning parts or digging into a section.
 - **Theater mode and synced lyrics** (`F`), fullscreen with `F11`.
