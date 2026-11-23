@@ -43,7 +43,7 @@ Releases are built by GitHub Actions ([`.github/workflows/release.yml`](../.gith
    git push origin v0.2.0
    ```
 
-The workflow stamps the version from the tag into `tauri.conf.json`, `package.json` and `Cargo.toml`, builds Windows (NSIS + MSI), macOS (Apple Silicon and Intel) and Linux (AppImage, deb, rpm), signs the update bundles, uploads everything with a `latest.json` manifest to a draft release, and publishes it once all platforms succeed. Running copies of Mono pick it up within a few hours (or via **Settings → Updates → Check now**). Tags with a suffix such as `v1.0.0-beta.1` are published as pre-releases, which the updater ignores.
+The workflow stamps the version from the tag into `tauri.conf.json`, `package.json` and `Cargo.toml`, builds Windows (NSIS + MSI), macOS (one universal app for Apple Silicon and Intel) and Linux (AppImage, deb, rpm), signs the update bundles, uploads everything with a `latest.json` manifest to a draft release, and publishes it once all platforms succeed. Running copies of Mono pick it up within a few hours (or via **Settings → Updates → Check now**). Tags with a suffix such as `v1.0.0-beta.1` are published as pre-releases, which the updater ignores.
 
 ### One-time setup
 

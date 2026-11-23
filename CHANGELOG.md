@@ -5,6 +5,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+- **One Mac download.** The Mac app is now a single universal build that runs natively on both Apple Silicon and Intel, instead of separate downloads. Picking the Intel one on an Apple Silicon Mac ran it through Rosetta, which on newer macOS could crash at launch.
+
 ## [0.5.0] - 2026-11-23
 
 Your own equaliser presets with A/B compare, and Mono starts again on newer macOS releases.
