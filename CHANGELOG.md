@@ -5,7 +5,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+- **Drop folders to add them.** Drag a music folder from Explorer or Finder onto the window to add it as a crate; a folder that's already in your library just opens. Dropped audio files play. While you drag, a drop zone fades in over the sidebar for folders, or over the track list for audio files.
+- **Reorder crates.** Drag a folder up or down among its neighbours (a line shows where it will land), or right-click it and choose *Move up* / *Move down*. Top-level folders keep the new order in your watched-folders list; sub-folders remember theirs, and new folders slot in by name after the ones you've placed.
+
 ### Changed
+- **Up next reordering** now picks a track up after a short drag and shows a line where it will land, scrolling the list when you drag near its edges.
 - **Volume follows the accent and the scroll wheel.** The volume slider takes the accent colour (from the cover art, when that's on), and scrolling over it changes the volume: 2 % per notch, smoothly on a trackpad.
 - **One Mac download.** The Mac app is now a single universal build that runs natively on both Apple Silicon and Intel, instead of separate downloads. Picking the Intel one on an Apple Silicon Mac ran it through Rosetta, which on newer macOS could crash at launch.
 

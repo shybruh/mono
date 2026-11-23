@@ -197,6 +197,28 @@ fn app_info(app: AppHandle) -> AppInfo {
     }
 }
 
+#[derive(serde::Serialize)]
+struct Dropped {
+    folders: Vec<String>,
+    audio: Vec<String>,
+}
+
+/// Sorts paths dropped on the window into folders (to add as crates) and
+/// playable files; anything else is ignored.
+#[tauri::command]
+fn sort_dropped(paths: Vec<String>) -> Dropped {
+    let mut out = Dropped { folders: Vec::new(), audio: Vec::new() };
+    for p in paths {
+        let path = Path::new(&p);
+        if path.is_dir() {
+            out.folders.push(p);
+        } else if meta::is_audio(path) {
+            out.audio.push(p);
+        }
+    }
+    out
+}
+
 #[tauri::command]
 fn save_playlist(path: String, tracks: Vec<String>) -> Res<()> {
     library::write_playlist(Path::new(&path), &tracks).map_err(err)
@@ -517,6 +539,7 @@ pub fn run() {
             _ => {}
         })
         .invoke_handler(tauri::generate_handler![
+            sort_dropped,
             get_config,
             update_config,
             crates,

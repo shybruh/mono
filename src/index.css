@@ -293,6 +293,13 @@
     opacity: 0;
   }
 }
+
+/* Drop zone icon: a slow nudge downward, toward where it will land. */
+@keyframes drop-bob {
+  50% {
+    translate: 0 3px;
+  }
+}
 @utility animate-pop {
   animation: pop 260ms var(--ease-spring);
 }

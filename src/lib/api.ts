@@ -83,6 +83,8 @@ export interface Config {
   autoUpdate: boolean;
   resume: boolean;
   smartCrates: SmartCrate[];
+  /** Custom sub-folder order: parent path → child paths. */
+  crateOrder: Record<string, string[]>;
   eq: import("./eq").EqSettings;
   eqPresets: import("./eq").EqPreset[];
   crossfeed: number;
@@ -178,6 +180,7 @@ export const api = {
   storeLyrics: (path: string, raw: string | null, pinned: boolean) =>
     invoke<Lyrics | null>("store_lyrics", { path, raw, pinned }),
   appInfo: () => invoke<AppInfo>("app_info"),
+  sortDropped: (paths: string[]) => invoke<{ folders: string[]; audio: string[] }>("sort_dropped", { paths }),
   savePlaylist: (path: string, tracks: string[]) => invoke<void>("save_playlist", { path, tracks }),
 
   writeTags: (path: string, tags: TagEdit) => invoke<TrackMeta>("write_tags", { path, tags }),

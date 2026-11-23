@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from "react";
-import { FolderPlus } from "lucide-react";
+import { FolderPlus, Play } from "lucide-react";
+import { DropZone } from "@/components/DropZone";
 import { api } from "@/lib/api";
 import { useStore } from "@/lib/store";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -12,6 +13,7 @@ import { VisualizerPanel } from "@/components/VisualizerPanel";
 import { CommandPalette } from "@/components/CommandPalette";
 import { QueuePanel } from "@/components/QueuePanel";
 import { startAutoCheck } from "@/lib/updater";
+import { useFileDrop } from "@/hooks/useFileDrop";
 
 // Screens that aren't on screen at launch load in their own chunks, fetched
 // while the app is idle so opening them later is still instant.
@@ -208,6 +210,8 @@ export default function App() {
     if (autoUpdate !== undefined) startAutoCheck(autoUpdate);
   }, [autoUpdate]);
   useShortcuts();
+  useFileDrop();
+  const dropping = useStore((s) => s.dropping);
 
   return (
     <TooltipProvider delayDuration={400}>
@@ -227,7 +231,8 @@ export default function App() {
         ) : (
           <div className="flex min-h-0 flex-1">
             <Sidebar />
-            <main className="flex min-w-0 flex-1 flex-col">
+            <main className="relative flex min-w-0 flex-1 flex-col">
+              <DropZone on={dropping === "audio"} icon={Play} filled />
               <NowPlaying />
               {hasRoots ? (
                 layout === "albums" ? (

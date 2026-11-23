@@ -136,6 +136,8 @@ interface Store {
   eqOpen: boolean;
   /** Crates drawer on phone-width layouts. */
   navOpen: boolean;
+  /** What's being dragged over the window: a folder (becomes a crate) or audio (plays). */
+  dropping: "folder" | "audio" | null;
   setNavOpen: (v: boolean) => void;
   /** Track list or album grid. */
   layout: "list" | "albums";
@@ -277,6 +279,7 @@ export const useStore = create<Store>((set, get) => ({
   queueOpen: false,
   eqOpen: false,
   navOpen: false,
+  dropping: null,
   setNavOpen: (v) => set({ navOpen: v }),
   layout: loadJSON<"list" | "albums">("mono.layout.mode", "list"),
   setLayout: (l) => {

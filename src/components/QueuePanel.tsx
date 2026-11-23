@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { GripVertical, X } from "lucide-react";
 import { api, type TrackMeta } from "@/lib/api";
 import { useStore } from "@/lib/store";
@@ -30,26 +30,29 @@ function Row({
   meta,
   current,
   onRemove,
-  dragProps,
+  onPointerDown,
+  dragging,
   onPlay,
 }: {
   path: string;
   meta?: TrackMeta;
   current?: boolean;
   onRemove?: () => void;
-  dragProps?: React.HTMLAttributes<HTMLDivElement> & { draggable?: boolean };
+  onPointerDown?: (e: React.PointerEvent<HTMLDivElement>) => void;
+  dragging?: boolean;
   onPlay?: () => void;
 }) {
   return (
     <div
-      {...dragProps}
+      onPointerDown={onPointerDown}
       onDoubleClick={onPlay}
       className={cn(
         "group flex h-11 items-center gap-2 rounded-md px-2 hover:bg-accent/60",
         current && "bg-brand-wash text-brand hover:bg-brand-wash",
+        dragging && "bg-accent/60 opacity-50",
       )}
     >
-      {dragProps ? (
+      {onPointerDown ? (
         <GripVertical className="size-3.5 shrink-0 cursor-grab text-muted-foreground/50" />
       ) : (
         <span className="size-3.5 shrink-0" />
@@ -82,7 +85,9 @@ export function QueuePanel() {
   const index = useStore((s) => s.player.index);
   const userEnd = useStore((s) => s.userQueueEnd);
   const [drag, setDrag] = useState<number | null>(null);
+  /** Insertion slot (0..upcoming.length) while dragging. */
   const [over, setOver] = useState<number | null>(null);
+  const scroller = useRef<HTMLDivElement>(null);
 
   const cur = index ?? -1;
   const upcoming = useMemo(() => queue.slice(cur + 1), [queue, cur]);
@@ -104,6 +109,57 @@ export function QueuePanel() {
   };
   const userCount = userEnd != null ? Math.max(0, userEnd - (cur + 1)) : 0;
 
+  /**
+   * Pointer-driven reordering (no HTML5 drag and drop, which the window's
+   * native file drop disables on Windows). Press a row and move a few pixels
+   * to pick it up; a line shows where it will land.
+   */
+  const startDrag = (k: number) => (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0 || (e.target as Element).closest("button")) return;
+    const x0 = e.clientX;
+    const y0 = e.clientY;
+    let active = false;
+    let slot: number | null = null;
+    const slotAt = (y: number): number | null => {
+      const rows = scroller.current?.querySelectorAll<HTMLElement>("[data-q]");
+      if (!rows?.length) return null;
+      for (const el of rows) {
+        const r = el.getBoundingClientRect();
+        if (y < r.top + r.height / 2) return Number(el.dataset.q);
+      }
+      return Number(rows[rows.length - 1].dataset.q) + 1;
+    };
+    const moveH = (ev: PointerEvent) => {
+      if (!active) {
+        if (Math.hypot(ev.clientX - x0, ev.clientY - y0) < 4) return;
+        active = true;
+        setDrag(k);
+        document.body.style.cursor = "grabbing";
+      }
+      // Scroll when held near the list's top or bottom edge.
+      const box = scroller.current?.getBoundingClientRect();
+      if (box && scroller.current) {
+        if (ev.clientY < box.top + 32) scroller.current.scrollTop -= 12;
+        else if (ev.clientY > box.bottom - 32) scroller.current.scrollTop += 12;
+      }
+      slot = slotAt(ev.clientY);
+      setOver(slot);
+    };
+    const up = () => {
+      window.removeEventListener("pointermove", moveH);
+      window.removeEventListener("pointerup", up);
+      window.removeEventListener("pointercancel", up);
+      document.body.style.cursor = "";
+      if (active && slot != null) move(k, slot > k ? slot - 1 : slot);
+      setDrag(null);
+      setOver(null);
+    };
+    window.addEventListener("pointermove", moveH);
+    window.addEventListener("pointerup", up);
+    window.addEventListener("pointercancel", up);
+  };
+  const shown = upcoming.slice(0, 500);
+
   return (
     <Sheet open={open} onOpenChange={(v) => useStore.getState().setQueueOpen(v)}>
       <SheetContent className="w-[380px] gap-0 sm:max-w-[380px]">
@@ -113,7 +169,7 @@ export function QueuePanel() {
             {upcoming.length ? `${upcoming.length} tracks` : "Queue is empty"}
           </SheetDescription>
         </SheetHeader>
-        <div className="min-h-0 flex-1 overflow-y-auto p-2">
+        <div ref={scroller} className={cn("min-h-0 flex-1 overflow-y-auto p-2", drag != null && "select-none")}>
           {index != null && queue[index] && (
             <>
               <div className="px-2 pt-1 pb-1.5 text-[11px] text-muted-foreground/70">Now playing</div>
@@ -131,37 +187,33 @@ export function QueuePanel() {
               </button>
             </div>
           )}
-          {upcoming.slice(0, 500).map((p, k) => (
-            <div key={`${p}-${k}`} className={cn(over === k && drag != null && "border-t-2 border-brand")}>
-              <Row
-                path={p}
-                meta={meta(p)}
-                onRemove={() => remove(k)}
-                onPlay={() => api.playIndex(cur + 1 + k)}
-                dragProps={{
-                  draggable: true,
-                  onDragStart: (e) => {
-                    setDrag(k);
-                    e.dataTransfer.effectAllowed = "move";
-                  },
-                  onDragOver: (e) => {
-                    e.preventDefault();
-                    setOver(k);
-                  },
-                  onDrop: (e) => {
-                    e.preventDefault();
-                    if (drag != null) move(drag, k);
-                    setDrag(null);
-                    setOver(null);
-                  },
-                  onDragEnd: () => {
-                    setDrag(null);
-                    setOver(null);
-                  },
-                }}
-              />
-            </div>
-          ))}
+          {shown.map((p, k) => {
+            const lineAbove = drag != null && over === k && k !== drag && k !== drag + 1;
+            const lineBelow =
+              drag != null && k === shown.length - 1 && over === shown.length && drag !== shown.length - 1;
+            return (
+              <div
+                key={`${p}-${k}`}
+                data-q={k}
+                className={cn(
+                  "relative",
+                  (lineAbove || lineBelow) &&
+                    "after:absolute after:inset-x-2 after:h-0.5 after:rounded-full after:bg-brand",
+                  lineAbove && "after:-top-px",
+                  lineBelow && "after:-bottom-px",
+                )}
+              >
+                <Row
+                  path={p}
+                  meta={meta(p)}
+                  onRemove={() => remove(k)}
+                  onPlay={() => api.playIndex(cur + 1 + k)}
+                  onPointerDown={startDrag(k)}
+                  dragging={drag === k}
+                />
+              </div>
+            );
+          })}
           {upcoming.length > 500 && (
             <div className="px-2 py-3 text-[11px] text-muted-foreground">+{upcoming.length - 500} more</div>
           )}

@@ -30,6 +30,8 @@ pub struct Config {
     pub meta_online: bool,
     /// Smart crate definitions (owned by the UI; evaluated by `smart_tracks`).
     pub smart_crates: serde_json::Value,
+    /// Custom sub-folder order (owned by the UI): `{ parentPath: [childPath, ...] }`.
+    pub crate_order: serde_json::Value,
     pub eq: crate::audio::dsp::EqSettings,
     /// Saved equaliser presets (owned by the UI): `[{ name, preamp, bands }]`.
     pub eq_presets: serde_json::Value,
@@ -68,6 +70,7 @@ impl Default for Config {
             auto_update: true,
             resume: true,
             smart_crates: serde_json::Value::Array(Vec::new()),
+            crate_order: serde_json::Value::Object(Default::default()),
             eq: Default::default(),
             eq_presets: serde_json::Value::Array(Vec::new()),
             crossfeed: 0.0,
