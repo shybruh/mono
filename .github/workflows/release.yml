@@ -49,11 +49,14 @@ jobs:
 
           # Reuse a release already made for this tag (e.g. a draft left by a
           # failed run), otherwise create one. The POST returns the id directly.
+          # A draft whose tag was moved (deleted and re-pushed) loses its tag and
+          # shows up as "untagged-…", so drafts are also matched by name, and
+          # the PATCH re-attaches the tag.
           id=$(gh api "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
-            --jq "[.[] | select(.tag_name == \"$TAG\")][0].id // empty")
+            --jq "[.[] | select(.tag_name == \"$TAG\" or (.draft and .name == \"mono $TAG\"))][0].id // empty")
           if [[ -n "$id" ]]; then
             gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$id" \
-              -f name="mono $TAG" -F body=@notes.md -F draft=true -F prerelease=$prerelease > /dev/null
+              -f tag_name="$TAG" -f name="mono $TAG" -F body=@notes.md -F draft=true -F prerelease=$prerelease > /dev/null
           else
             id=$(gh api -X POST "repos/$GITHUB_REPOSITORY/releases" \
               -f tag_name="$TAG" -f name="mono $TAG" -F body=@notes.md \

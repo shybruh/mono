@@ -47,6 +47,7 @@ Same MP3 in every player, Ryzen 7 5700X3D, Windows 11:
 - **Gapless and even.** Mixes and live albums play without gaps, and loud and quiet tracks play at the same level (ReplayGain).
 - **Waveform seek bar, A–B loop, and separate speed and pitch control** for learning parts or digging into a section.
 - **Theater mode and synced lyrics** (`F`), fullscreen with `F11`.
+- **Media keys and system controls**: your keyboard and headset buttons work in the background, and Mono shows in the system's media panel and lock screen with the cover.
 - **Search everything** with `Ctrl+K`.
 - **Meters:** spectrum, spectrogram, oscilloscope, vectorscope, peak and loudness, on `V`.
 - **Mini player** that stays on top (`M`) and scales as you resize it.

@@ -228,7 +228,14 @@ impl Discord {
     }
 }
 
-pub fn spawn(data_dir: PathBuf, rx: Receiver<Hook>, history: bool, discord: bool, app_id: String) {
+pub fn spawn(
+    data_dir: PathBuf,
+    rx: Receiver<Hook>,
+    history: bool,
+    discord: bool,
+    app_id: String,
+    media: Option<crate::media::Media>,
+) {
     std::thread::Builder::new()
         .name("mono-integrations".into())
         .spawn(move || {
@@ -249,9 +256,15 @@ pub fn spawn(data_dir: PathBuf, rx: Receiver<Hook>, history: bool, discord: bool
                         if history_on {
                             append_history(&data_dir, &meta);
                         }
+                        if let Some(m) = &media {
+                            m.track(&meta, playing);
+                        }
                         want = Desired { meta: Some(meta), playing, start: now_secs() as i64, art: None };
                     }
                     Ok(Hook::Playing { playing, pos }) => {
+                        if let Some(m) = &media {
+                            m.playing(playing, pos);
+                        }
                         want.playing = playing;
                         want.start = now_secs() as i64 - pos.round() as i64;
                     }

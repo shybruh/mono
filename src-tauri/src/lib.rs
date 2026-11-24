@@ -4,6 +4,7 @@ mod config;
 mod integrations;
 mod library;
 mod lyrics;
+mod media;
 mod meta;
 mod smart;
 mod tags;
@@ -479,7 +480,20 @@ pub fn run() {
             let (analysis_tx, analysis_rx) = unbounded();
             let shared = Arc::new(Shared::new(cfg.volume));
 
-            integrations::spawn(data_dir.clone(), hook_rx, cfg.history, cfg.discord, cfg.discord_app_id.clone());
+            // Media keys and the system's now-playing panel. Setup runs on the
+            // main thread, which the controls need.
+            let media = match (app.get_webview_window("main"), app.path().app_cache_dir()) {
+                (Some(main), Ok(cache)) => media::init(&handle, &main, tx.clone(), cache.join("thumbs")),
+                _ => None,
+            };
+            integrations::spawn(
+                data_dir.clone(),
+                hook_rx,
+                cfg.history,
+                cfg.discord,
+                cfg.discord_app_id.clone(),
+                media,
+            );
 
             app.manage(AppState {
                 meta: MetaCache::default(),

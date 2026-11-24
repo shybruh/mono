@@ -66,6 +66,20 @@ fn thumbnail(bytes: &[u8], size: u32) -> Option<Vec<u8>> {
     Some(out)
 }
 
+/// A track's cover as a JPEG file of at most `size` px, made once and cached.
+/// Used where something outside the app needs a file (the system media controls).
+pub fn thumbnail_file(cache: &Path, path: &Path, size: u32) -> Option<PathBuf> {
+    let file = cache.join(cache_key(path, size));
+    if file.is_file() {
+        return Some(file);
+    }
+    let (_, bytes) = tags::cover_bytes(path)?;
+    let jpg = thumbnail(&bytes, size)?;
+    std::fs::create_dir_all(cache).ok()?;
+    std::fs::write(&file, jpg).ok()?;
+    Some(file)
+}
+
 fn respond(status: StatusCode, mime: &str, body: Vec<u8>) -> Response<Vec<u8>> {
     Response::builder()
         .status(status)
