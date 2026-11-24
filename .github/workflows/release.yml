@@ -76,8 +76,10 @@ jobs:
           - platform: windows-latest
             args: ""
           # One universal app (Apple Silicon + Intel) so nobody downloads the
-          # wrong one and ends up running it through Rosetta.
-          - platform: macos-latest
+          # wrong one and ends up running it through Rosetta. Built on the Intel
+          # runner pool: the Apple Silicon pool is often too busy to pick jobs
+          # up, and cross-compiling the arm64 half works the same either way.
+          - platform: macos-15-intel
             args: "--target universal-apple-darwin"
           - platform: ubuntu-22.04
             args: ""

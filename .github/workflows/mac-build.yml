@@ -10,7 +10,8 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    # Intel runner pool: the Apple Silicon pool is often too busy to pick jobs up.
+    runs-on: macos-15-intel
     steps:
       - uses: actions/checkout@v4
 
