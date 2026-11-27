@@ -5,6 +5,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-28
+
+Media keys and the system media panel now control Mono, and the list/album switch responds to every click.
+
 ### Added
 - **Media keys and system media controls.** Play/pause, next and previous keys (keyboard, headset or Bluetooth) control Mono even when it's in the background, and Mono shows up in the system's media panel with title, artist, album and cover: the Windows media flyout and lock screen, macOS Now Playing, and the media controls of Linux desktops (MPRIS). Seeking from those panels works too. Tracks without art show the mono logo.
 
