@@ -37,7 +37,9 @@ export function NowPlaying() {
 
   return (
     <div className="relative flex items-end gap-4 border-b p-4 max-sm:items-center max-sm:gap-3 max-sm:p-3">
-      <div className="absolute top-3 right-3 flex gap-0.5 rounded-md border p-0.5">
+      {/* z-10: the track info's entry animation gives it its own layer, which
+          would otherwise sit over the toggle and swallow most clicks. */}
+      <div className="absolute top-3 right-3 z-10 flex gap-0.5 rounded-md border bg-background p-0.5">
         {(["list", "albums"] as const).map((l) => (
           <button
             key={l}
@@ -60,7 +62,7 @@ export function NowPlaying() {
       >
         {cover && <img key={cover} src={cover} alt="" className="size-full animate-fade object-cover" draggable={false} />}
       </button>
-      <div key={m?.path ?? ""} className="min-w-0 flex-1 animate-rise max-sm:pr-14">
+      <div key={m?.path ?? ""} className="min-w-0 flex-1 animate-rise pr-20">
         <div className="truncate text-[11px] text-brand">{source}</div>
         <div className="mt-0.5 truncate text-lg font-medium leading-tight max-sm:text-base">
           {m ? m.title : <span className="text-muted-foreground">—</span>}
