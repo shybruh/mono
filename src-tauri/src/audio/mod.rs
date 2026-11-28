@@ -59,6 +59,9 @@ pub struct Shared {
     pub discard_until: AtomicU64,
     pub meters_on: AtomicBool,
     pub stream_dead: AtomicBool,
+    /// No one's looking (the phone app is in the background or the screen is
+    /// off): position updates slow to once a second.
+    pub ui_hidden: AtomicBool,
 }
 
 impl Shared {
@@ -70,6 +73,7 @@ impl Shared {
             discard_until: AtomicU64::new(0),
             meters_on: AtomicBool::new(false),
             stream_dead: AtomicBool::new(false),
+            ui_hidden: AtomicBool::new(false),
         }
     }
 }

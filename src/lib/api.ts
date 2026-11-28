@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { ensureFileAccess } from "./platform";
 
 export type Repeat = "off" | "all" | "one";
 
@@ -163,6 +164,15 @@ export interface TagEdit {
   key?: string | null;
 }
 
+/**
+ * Runs a command that changes music files. On Android that first needs "All
+ * files access": without it the system page that grants it opens, and this
+ * attempt fails so nothing half-saves.
+ */
+function editing<T>(run: () => Promise<T>): Promise<T> {
+  return ensureFileAccess() ? run() : Promise.reject(new Error("Allow Mono to manage files, then try again"));
+}
+
 export const api = {
   getConfig: () => invoke<Config>("get_config"),
   updateConfig: (patch: Partial<Config>) => invoke<Config>("update_config", { patch }),
@@ -176,20 +186,22 @@ export const api = {
   waveform: (path: string, buckets: number) => invoke<number[]>("waveform", { path, buckets }),
   cover: (path: string) => invoke<string | null>("cover", { path }),
   lyrics: (path: string) => invoke<LyricsFound>("lyrics", { path }),
-  saveLrc: (path: string, lrc: string) => invoke<Lyrics | null>("save_lrc", { path, lrc }),
+  saveLrc: (path: string, lrc: string) => editing(() => invoke<Lyrics | null>("save_lrc", { path, lrc })),
   storeLyrics: (path: string, raw: string | null, pinned: boolean) =>
     invoke<Lyrics | null>("store_lyrics", { path, raw, pinned }),
   appInfo: () => invoke<AppInfo>("app_info"),
   sortDropped: (paths: string[]) => invoke<{ folders: string[]; audio: string[] }>("sort_dropped", { paths }),
-  savePlaylist: (path: string, tracks: string[]) => invoke<void>("save_playlist", { path, tracks }),
+  rescan: () => invoke<void>("rescan"),
+  setUiHidden: (hidden: boolean) => invoke<void>("set_ui_hidden", { hidden }),
+  savePlaylist: (path: string, tracks: string[]) => editing(() => invoke<void>("save_playlist", { path, tracks })),
 
-  writeTags: (path: string, tags: TagEdit) => invoke<TrackMeta>("write_tags", { path, tags }),
-  setCover: (path: string, image: string) => invoke<void>("set_cover", { path, image }),
+  writeTags: (path: string, tags: TagEdit) => editing(() => invoke<TrackMeta>("write_tags", { path, tags })),
+  setCover: (path: string, image: string) => editing(() => invoke<void>("set_cover", { path, image })),
   setCoverData: (path: string, data: string, mime: string) =>
-    invoke<void>("set_cover_data", { path, data, mime }),
-  removeCover: (path: string) => invoke<void>("remove_cover", { path }),
-  analyseTrack: (path: string) => invoke<TrackMeta>("analyse_track", { path }),
-  renumber: (paths: string[]) => invoke<void>("renumber", { paths }),
+    editing(() => invoke<void>("set_cover_data", { path, data, mime })),
+  removeCover: (path: string) => editing(() => invoke<void>("remove_cover", { path })),
+  analyseTrack: (path: string) => editing(() => invoke<TrackMeta>("analyse_track", { path })),
+  renumber: (paths: string[]) => editing(() => invoke<void>("renumber", { paths })),
 
   playQueue: (paths: string[], index: number) => invoke<void>("play_queue", { paths, index }),
   setQueue: (paths: string[], index: number) => invoke<void>("set_queue", { paths, index }),

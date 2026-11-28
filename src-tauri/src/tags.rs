@@ -27,7 +27,7 @@ pub struct TagEdit {
 }
 
 fn with_tag<F: FnOnce(&mut Tag)>(path: &Path, f: F) -> Result<()> {
-    let mut file = lofty::read_from_path(path).map_err(|e| anyhow!("read tags: {e}"))?;
+    let mut file = crate::meta::read_tagged(path).map_err(|e| anyhow!("read tags: {e}"))?;
     if file.primary_tag().is_none() {
         let tt = file.primary_tag_type();
         file.insert_tag(Tag::new(tt));
@@ -167,7 +167,7 @@ pub fn cover(path: &Path) -> Option<String> {
 
 /// The cover image as (mime type, bytes).
 pub fn cover_bytes(path: &Path) -> Option<(String, Vec<u8>)> {
-    if let Ok(file) = lofty::read_from_path(path) {
+    if let Ok(file) = crate::meta::read_tagged(path) {
         if let Some(tag) = file.primary_tag().or_else(|| file.first_tag()) {
             let pics = tag.pictures();
             let pic = pics

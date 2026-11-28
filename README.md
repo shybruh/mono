@@ -2,7 +2,7 @@
 
 <p align="center">
   A fast, quiet music player for the files you already have.<br>
-  <a href="https://github.com/shybruh/mono/releases/latest"><b>Download for Windows, macOS or Linux</b></a>
+  <a href="https://github.com/shybruh/mono/releases/latest"><b>Download for Windows, macOS, Linux or Android</b></a>
 </p>
 
 <p align="center">
@@ -61,6 +61,25 @@ Same MP3 in every player, Ryzen 7 5700X3D, Windows 11:
 - **Opens with your files**: set Mono as the player for your audio files, and anything you open goes to the window that's already running.
 
 Plays MP3, FLAC, WAV, OGG and M4A/AAC.
+
+## Android
+
+<p align="center">
+  <img src="docs/screenshots/android-player.png" alt="Mono on Android: the player with synced lyrics and meters" width="250">
+  <img src="docs/screenshots/android-lyrics.png" alt="Mono on Android: full-screen lyrics" width="250">
+  <img src="docs/screenshots/android-equaliser.png" alt="Mono on Android: the equaliser" width="250">
+</p>
+
+The same player on your phone, laid out for one hand: the cover and waveform up front, your crates a swipe away with a mini player underneath.
+
+- **Plays in the background**, with the cover, title and controls in the notification and on the lock screen. Headset and Bluetooth buttons work, and calls or unplugging your headphones pause it.
+- **Your folders, again.** It starts with your Music folder; add any other from the phone's storage or SD card.
+- **Synced lyrics** under the cover, or full screen with a tap, looked up online if your files have none.
+- **The full sound side**: equaliser with presets and A/B, crossfeed, crossfade, ReplayGain, speed and pitch.
+- **Tags, BPM and key**: long-press a song to edit its tags or analyse it.
+- **Light on the battery**: a paused Mono uses next to nothing, and with the screen off it only does what playback needs.
+
+Needs Android 8 or newer on a 64-bit (arm64) phone, which is nearly every phone since 2017. Download the `.apk` from the [latest release](https://github.com/shybruh/mono/releases/latest), open it and allow your browser to install it. Mono asks for access to your music, and the first time you edit a song, for permission to manage files. New versions install over the old one.
 
 ## Notes
 

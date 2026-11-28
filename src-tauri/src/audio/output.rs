@@ -12,8 +12,7 @@ use rtrb::{Consumer, Producer, RingBuffer};
 use super::Shared;
 
 pub struct Output {
-    /// Held only to keep the device stream alive.
-    #[allow(dead_code)]
+    /// The device stream: kept alive here, paused while playback is.
     pub stream: cpal::Stream,
     pub producer: Producer<f32>,
     pub sample_rate: u32,

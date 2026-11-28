@@ -28,7 +28,8 @@ export const metersFresh = () => performance.now() - latest.at < 250;
 function sync() {
   window.clearTimeout(timer);
   timer = window.setTimeout(() => {
-    const want = users > 0;
+    // Nothing to draw while the window is hidden (minimised, phone screen off).
+    const want = users > 0 && !document.hidden;
     if (want === sentOn) return;
     sentOn = want;
     api.setMeters(want, ++seq).catch(() => {
@@ -60,8 +61,9 @@ function release() {
 // Self-heal: re-assert the desired state every few seconds while meters are
 // on screen (covers a backend restart during development).
 window.setInterval(() => {
-  if (users > 0) api.setMeters(true, ++seq).catch(() => {});
+  if (users > 0 && !document.hidden) api.setMeters(true, ++seq).catch(() => {});
 }, 3000);
+document.addEventListener("visibilitychange", sync);
 
 export function useMeters(enabled = true) {
   const ref = useRef(latest);

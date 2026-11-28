@@ -10,6 +10,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { useCompact } from "@/hooks/useCompact";
 
 type FieldId = keyof TagEdit;
 type Form = Record<FieldId, string>;
@@ -101,6 +102,7 @@ function Field({
 
 export function TagDrawer() {
   const paths = useStore((s) => s.tagTarget);
+  const compact = useCompact();
   const [metas, setMetas] = useState<TrackMeta[]>([]);
   const [form, setForm] = useState<Form>(blank);
   const [touched, setTouched] = useState<Set<FieldId>>(new Set());
@@ -228,7 +230,10 @@ export function TagDrawer() {
 
   return (
     <Sheet open={paths != null} onOpenChange={(v) => !v && useStore.getState().openTags(null)}>
-      <SheetContent className="w-[380px] gap-0 sm:max-w-[380px]">
+      <SheetContent
+        side={compact ? "bottom" : "right"}
+        className={compact ? "h-[92dvh] gap-0 rounded-t-2xl" : "w-[380px] gap-0 sm:max-w-[380px]"}
+      >
         <SheetHeader className="border-b">
           <SheetTitle className="text-sm font-medium">{single ? "Tags" : `Tags · ${paths?.length ?? 0} tracks`}</SheetTitle>
           <SheetDescription className="truncate font-mono text-[11px]">

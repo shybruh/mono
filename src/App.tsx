@@ -14,6 +14,10 @@ import { CommandPalette } from "@/components/CommandPalette";
 import { QueuePanel } from "@/components/QueuePanel";
 import { startAutoCheck } from "@/lib/updater";
 import { useFileDrop } from "@/hooks/useFileDrop";
+import { useCompact } from "@/hooks/useCompact";
+import { MobileApp } from "@/components/MobileApp";
+import { isAndroidApp } from "@/lib/platform";
+import { useAndroidMedia } from "@/hooks/useAndroidMedia";
 
 // Screens that aren't on screen at launch load in their own chunks, fetched
 // while the app is idle so opening them later is still instant.
@@ -207,15 +211,20 @@ export default function App() {
     init();
   }, [init]);
   useEffect(() => {
-    if (autoUpdate !== undefined) startAutoCheck(autoUpdate);
+    // The Android app has no self-updater.
+    if (autoUpdate !== undefined && !isAndroidApp) startAutoCheck(autoUpdate);
   }, [autoUpdate]);
   useShortcuts();
   useFileDrop();
+  useAndroidMedia();
   const dropping = useStore((s) => s.dropping);
+  const compact = useCompact();
 
   return (
     <TooltipProvider delayDuration={400}>
-      {fullscreen ? (
+      {compact ? (
+        <MobileApp />
+      ) : fullscreen ? (
         <div className="flex h-full flex-col">
           <Suspense fallback={null}>
             <Theater fullscreen />

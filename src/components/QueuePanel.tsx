@@ -4,6 +4,10 @@ import { api, type TrackMeta } from "@/lib/api";
 import { useStore } from "@/lib/store";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { basename, cn, fmtTime } from "@/lib/utils";
+import { useCompact } from "@/hooks/useCompact";
+
+/** When the last drag ended, so its release doesn't also count as a tap. */
+let lastDragEnd = 0;
 
 // Metadata for queue rows, shared across opens. Seeded from the visible list.
 const metaCache = new Map<string, TrackMeta>();
@@ -46,6 +50,11 @@ function Row({
     <div
       onPointerDown={onPointerDown}
       onDoubleClick={onPlay}
+      onClick={(e) => {
+        // Phones have no double tap; a tap that wasn't a drag plays the row.
+        if (performance.now() - lastDragEnd < 300) return;
+        if (onPlay && window.matchMedia("(max-width: 639px)").matches && !(e.target as HTMLElement).closest("button")) onPlay();
+      }}
       className={cn(
         "group flex h-11 items-center gap-2 rounded-md px-2 hover:bg-accent/60",
         current && "bg-brand-wash text-brand hover:bg-brand-wash",
@@ -53,7 +62,9 @@ function Row({
       )}
     >
       {onPointerDown ? (
-        <GripVertical className="size-3.5 shrink-0 cursor-grab text-muted-foreground/50" />
+        <span data-grip className="-m-2 flex shrink-0 touch-none p-2">
+          <GripVertical className="size-3.5 cursor-grab text-muted-foreground/50" />
+        </span>
       ) : (
         <span className="size-3.5 shrink-0" />
       )}
@@ -70,7 +81,7 @@ function Row({
         <button
           aria-label="Remove"
           onClick={onRemove}
-          className="rounded p-1 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground"
+          className="rounded p-1 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-foreground max-sm:opacity-100"
         >
           <X className="size-3.5" />
         </button>
@@ -81,6 +92,7 @@ function Row({
 
 export function QueuePanel() {
   const open = useStore((s) => s.queueOpen);
+  const compact = useCompact();
   const queue = useStore((s) => s.player.queue);
   const index = useStore((s) => s.player.index);
   const userEnd = useStore((s) => s.userQueueEnd);
@@ -116,6 +128,8 @@ export function QueuePanel() {
    */
   const startDrag = (k: number) => (e: React.PointerEvent<HTMLDivElement>) => {
     if (e.button !== 0 || (e.target as Element).closest("button")) return;
+    // On touch the list scrolls; only the grip picks a row up.
+    if (e.pointerType === "touch" && !(e.target as Element).closest("[data-grip]")) return;
     const x0 = e.clientX;
     const y0 = e.clientY;
     let active = false;
@@ -150,6 +164,7 @@ export function QueuePanel() {
       window.removeEventListener("pointerup", up);
       window.removeEventListener("pointercancel", up);
       document.body.style.cursor = "";
+      if (active) lastDragEnd = performance.now();
       if (active && slot != null) move(k, slot > k ? slot - 1 : slot);
       setDrag(null);
       setOver(null);
@@ -162,7 +177,11 @@ export function QueuePanel() {
 
   return (
     <Sheet open={open} onOpenChange={(v) => useStore.getState().setQueueOpen(v)}>
-      <SheetContent className="w-[380px] gap-0 sm:max-w-[380px]">
+      <SheetContent
+        side={compact ? "bottom" : "right"}
+        className={compact ? "h-[78dvh] gap-0 rounded-t-2xl" : "w-[380px] gap-0 sm:max-w-[380px]"}
+      >
+        {compact && <div className="mx-auto mt-2 h-1 w-9 shrink-0 rounded-full bg-border" />}
         <SheetHeader className="border-b">
           <SheetTitle className="text-sm font-medium">Up next</SheetTitle>
           <SheetDescription className="text-[11px]">

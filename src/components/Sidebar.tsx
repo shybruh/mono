@@ -17,9 +17,11 @@ import { ResizeHandle, startDrag, useSizes } from "@/hooks/useDragSize";
 import { useCompact } from "@/hooks/useCompact";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { DropZone } from "@/components/DropZone";
+import { isAndroidApp, pickAndroidFolder } from "@/lib/platform";
 
 export async function addFolder() {
-  const dir = await open({ directory: true, multiple: false });
+  // Android: the system picker, since the dialog plugin there picks files, not folders.
+  const dir = isAndroidApp ? await pickAndroidFolder() : await open({ directory: true, multiple: false });
   if (typeof dir !== "string") return;
   const { config, setConfig, openView } = useStore.getState();
   const roots = config?.roots ?? [];

@@ -3,7 +3,7 @@ import { basename, cn } from "@/lib/utils";
 import { centreOf } from "@/lib/motion";
 import { LayoutGrid, Rows3 } from "lucide-react";
 
-function Chip({ children, muted }: { children: React.ReactNode; muted?: boolean }) {
+export function Chip({ children, muted }: { children: React.ReactNode; muted?: boolean }) {
   return (
     <span
       className={

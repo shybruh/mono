@@ -123,13 +123,22 @@ pub fn read_uncached(path: &Path) -> TrackMeta {
         .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
         .map(|d| d.as_secs())
         .unwrap_or(0);
-    let Ok(file) = lofty::read_from_path(path) else {
+    let Ok(file) = read_tagged(path) else {
         fill_from_name(&mut meta, path);
         return meta;
     };
+    // The real format, not the extension's: an MP4 named .mp3 shows as M4A.
+    meta.format = format_label(file.file_type()).unwrap_or(meta.format);
     let props = file.properties();
     meta.duration = props.duration().as_secs_f64();
     meta.bitrate = props.audio_bitrate().or(props.overall_bitrate());
+    // Streamed (fragmented) MP4s report a nonsense rate such as 8 kbps; the
+    // file's size over its length is close enough.
+    if meta.bitrate.map_or(true, |b| b < 24) && meta.duration > 1.0 {
+        if let Ok(md) = std::fs::metadata(path) {
+            meta.bitrate = Some((md.len() as f64 * 8.0 / meta.duration / 1000.0).round() as u32);
+        }
+    }
     meta.sample_rate = props.sample_rate();
     meta.channels = props.channels();
     meta.bit_depth = props.bit_depth();
@@ -255,4 +264,29 @@ pub fn replaygain_linear(meta: &TrackMeta, mode: &str, preamp_db: f32) -> f32 {
         lin = lin.min(1.0 / p);
     }
     lin
+}
+
+/// Opens a file's tags, telling the format from its content rather than its
+/// extension: downloads are often MP4/AAC saved as `.mp3`, which would
+/// otherwise fail as an MP3 with "invalid frame".
+pub fn read_tagged(path: &Path) -> lofty::error::Result<lofty::file::TaggedFile> {
+    lofty::probe::Probe::open(path)?.guess_file_type()?.read()
+}
+
+fn format_label(t: lofty::file::FileType) -> Option<String> {
+    use lofty::file::FileType::*;
+    Some(
+        match t {
+            Mpeg => "MP3",
+            Mp4 => "M4A",
+            Flac => "FLAC",
+            Wav => "WAV",
+            Vorbis => "OGG",
+            Opus => "OPUS",
+            Aac => "AAC",
+            Aiff => "AIFF",
+            _ => return None,
+        }
+        .to_owned(),
+    )
 }

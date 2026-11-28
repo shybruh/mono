@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { save } from "@tauri-apps/plugin-dialog";
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { ArrowDown, ArrowUp, AudioLines, AudioWaveform, CloudDownload, ListEnd, ListStart, Tag } from "lucide-react";
 import { fillMissing, needsInfo, useFill } from "@/lib/fill";
 import { analyse, useAnalysis } from "@/lib/analysis";
 import { api } from "@/lib/api";
@@ -272,6 +272,9 @@ export function TrackList() {
                           useStore.getState().select(i);
                         }
                       }}
+                      // Long-press on touch opens the menu without a mousedown: select the row
+                      // first so the menu acts on it, not on whatever was selected before.
+                      onContextMenu={() => !chosen && useStore.getState().select(i)}
                       onDoubleClick={() => useStore.getState().playFromList(i)}
                       // Touch has no double-click: a tap plays.
                       onClick={compact ? () => useStore.getState().playFromList(i) : undefined}
@@ -327,6 +330,7 @@ export function TrackList() {
           busy={fill.running || analysing.running}
           onSavePlaylist={saveAsPlaylist}
           canRenumber={view?.kind === "crate"}
+          compact={compact}
         />
       </ContextMenu>
     </div>
@@ -339,16 +343,55 @@ function RowMenu({
   busy,
   onSavePlaylist,
   canRenumber,
+  compact,
 }: {
   missing: number;
   busy: boolean;
   onSavePlaylist: () => void;
   canRenumber: boolean;
+  compact: boolean;
 }) {
   const count = useStore((s) => s.selection.length);
+  const first = useStore((s) => (s.selection.length === 1 ? s.list.find((m) => m.path === s.selection[0]) : null));
   const s = useStore.getState;
   const paths = () => s().selectedTracks().map((m) => m.path);
   const n = count > 1 ? ` (${count})` : "";
+
+  // Phones: what the long-pressed song needs, sized for fingers and kept
+  // clear of the screen edges. Tapping a row already plays it.
+  if (compact) {
+    const item = "h-11 gap-3 px-3 text-[15px] [&_svg]:size-[18px]";
+    return (
+      <ContextMenuContent collisionPadding={12} className="w-64 max-w-[calc(100vw-24px)] p-1.5">
+        <ContextMenuLabel className="px-3 pt-1.5 pb-2">
+          <div className="truncate text-[14px] font-medium">{first ? first.title : `${count} tracks`}</div>
+          {first?.artist && <div className="truncate text-xs font-normal text-muted-foreground">{first.artist}</div>}
+        </ContextMenuLabel>
+        <ContextMenuSeparator />
+        <ContextMenuItem className={item} disabled={!count} onSelect={() => s().playNext(paths())}>
+          <ListStart /> Play next
+        </ContextMenuItem>
+        <ContextMenuItem className={item} disabled={!count} onSelect={() => s().addToQueue(paths())}>
+          <ListEnd /> Add to queue
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem className={item} disabled={!count} onSelect={() => s().openTags(paths())}>
+          <Tag /> Edit tags
+        </ContextMenuItem>
+        <ContextMenuItem className={item} disabled={!count || busy} onSelect={() => analyse(s().selectedTracks())}>
+          <AudioWaveform /> Analyse BPM and key
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem className={item} disabled={busy || missing === 0} onSelect={() => fillMissing(s().list)}>
+          <CloudDownload /> Fill missing info{missing ? ` (${missing})` : ""}
+        </ContextMenuItem>
+        <ContextMenuItem className={item} disabled={busy} onSelect={() => analyse(s().list.filter((m) => !m.bpm || !m.key))}>
+          <AudioLines /> Analyse whole crate
+        </ContextMenuItem>
+      </ContextMenuContent>
+    );
+  }
+
   return (
     <ContextMenuContent className="w-60">
       <ContextMenuItem

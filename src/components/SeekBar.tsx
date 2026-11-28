@@ -12,7 +12,7 @@ const BAR = 3;
  * The waveform is the seek bar: always visible, click or drag to scrub.
  * Bars grow in from the left when a new track's envelope arrives.
  */
-export function SeekBar() {
+export function SeekBar({ stacked = false }: { stacked?: boolean } = {}) {
   const track = useStore((s) => s.track);
   // Re-render only when the playhead moves a whole pixel (or a second for the
   // time label on long files), not on every ~20 Hz position event.
@@ -155,11 +155,16 @@ export function SeekBar() {
   const tipTime = tipX != null && zone.current ? (tipX / zone.current.clientWidth) * duration : null;
 
   return (
-    <div className="flex items-center gap-3 font-mono text-[11px] text-muted-foreground tabular-nums">
-      <span className="w-12 text-right">{fmtTime(shownPos)}</span>
+    <div
+      className={cn(
+        "flex font-mono text-[11px] text-muted-foreground tabular-nums",
+        stacked ? "flex-wrap justify-between gap-y-1" : "items-center gap-3",
+      )}
+    >
+      <span className={stacked ? "order-2" : "w-12 text-right"}>{fmtTime(shownPos)}</span>
       <div
         ref={zone}
-        className={cn("relative flex-1 cursor-pointer", wave ? "h-12" : "h-3.5")}
+        className={cn("relative flex-1 cursor-pointer touch-none", wave ? "h-12" : "h-3.5", stacked && "order-1 basis-full")}
         onPointerMove={(e) => {
           const r = zone.current!.getBoundingClientRect();
           const x = Math.max(0, Math.min(r.width, e.clientX - r.left));
@@ -190,7 +195,7 @@ export function SeekBar() {
           </span>
         )}
       </div>
-      <span className="w-12">{fmtTime(duration)}</span>
+      <span className={stacked ? "order-3" : "w-12"}>{fmtTime(duration)}</span>
     </div>
   );
 }

@@ -5,6 +5,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+- **Constant CPU use on Linux.** Reading a song counted as a change to its folder, so the library kept rescanning itself while Mono was open. Only real changes (files added, removed, renamed or saved) count now.
+- **Editing tags of downloads saved with the wrong extension** (for example MP4/AAC audio named `.mp3`) failed with "contains an invalid frame". Mono now goes by what's in the file, and shows its real format (M4A) and bitrate.
+
+### Changed
+- **A paused Mono costs nothing.** The audio device stops half a second into a pause and starts again on play, and the meters stop while the window is minimised or hidden.
+
 ## [0.7.0] - 2026-11-28
 
 Media keys and the system media panel now control Mono, and the list/album switch responds to every click.

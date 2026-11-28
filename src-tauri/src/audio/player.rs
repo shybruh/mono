@@ -37,6 +37,8 @@ use crate::AppState;
 
 const PREBUFFER_SECS: f64 = 6.0;
 const EMIT_EVERY: Duration = Duration::from_millis(50);
+/// Position updates while no one's looking.
+const EMIT_HIDDEN: Duration = Duration::from_secs(1);
 
 struct Loaded {
     src: Source,
@@ -92,6 +94,10 @@ pub struct Engine {
     analysis_tx: Sender<(Consumer<f32>, u32)>,
 
     output: Option<Output>,
+    /// The device stream is paused (not closed) while playback is.
+    stream_idle: bool,
+    /// When playback paused, to let the fade-out play before the stream stops.
+    idle_since: Option<Instant>,
     out_sr: u32,
     written: u64,
     produced: u64,
@@ -190,6 +196,8 @@ impl Engine {
                     rg_mode,
                     rg_preamp,
                     playing: false,
+                    stream_idle: false,
+                    idle_since: None,
                     raw: Vec::with_capacity(8192),
                     mid: Vec::with_capacity(8192),
                     last_emit: Instant::now(),
@@ -229,6 +237,8 @@ impl Engine {
         self.shared.consumed.store(0, Ordering::Release);
         self.shared.discard_until.store(0, Ordering::Release);
         self.shared.stream_dead.store(false, Ordering::Release);
+        self.stream_idle = false;
+        self.idle_since = None;
         self.written = 0;
         self.produced = 0;
         self.pending.clear();
@@ -247,6 +257,8 @@ impl Engine {
                 Duration::from_millis(4)
             } else if self.playing {
                 Duration::from_millis(10)
+            } else if self.stream_idle {
+                Duration::from_millis(250)
             } else {
                 Duration::from_millis(60)
             };
@@ -275,6 +287,7 @@ impl Engine {
                 }
             }
 
+            self.sync_stream();
             for _ in 0..16 {
                 if !self.produce() {
                     break;
@@ -283,6 +296,28 @@ impl Engine {
             self.maybe_prepare_next();
             self.check_drained();
             self.emit_progress(false);
+        }
+    }
+
+    /// Stops the device stream half a second into a pause and restarts it on
+    /// play, so a paused player costs nothing: no audio callbacks, and phones
+    /// can power the audio hardware down.
+    fn sync_stream(&mut self) {
+        use cpal::traits::StreamTrait;
+        let Some(out) = &self.output else { return };
+        if self.playing {
+            self.idle_since = None;
+            if self.stream_idle {
+                let _ = out.stream.play();
+                self.stream_idle = false;
+            }
+        } else if !self.stream_idle {
+            let since = *self.idle_since.get_or_insert_with(Instant::now);
+            if since.elapsed() > Duration::from_millis(500) {
+                // If the backend can't pause, the stream keeps running as before.
+                let _ = out.stream.pause();
+                self.stream_idle = true;
+            }
         }
     }
 
@@ -789,7 +824,8 @@ impl Engine {
     }
 
     fn emit_progress(&mut self, force: bool) {
-        if !force && self.last_emit.elapsed() < EMIT_EVERY {
+        let every = if self.shared.ui_hidden.load(Ordering::Relaxed) { EMIT_HIDDEN } else { EMIT_EVERY };
+        if !force && self.last_emit.elapsed() < every {
             return;
         }
         self.last_emit = Instant::now();

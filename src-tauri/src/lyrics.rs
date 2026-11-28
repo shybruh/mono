@@ -98,7 +98,7 @@ fn sidecar(path: &Path) -> Option<Lyrics> {
 }
 
 fn embedded(path: &Path) -> Option<Lyrics> {
-    let file = lofty::read_from_path(path).ok()?;
+    let file = crate::meta::read_tagged(path).ok()?;
     let tag = file.primary_tag().or_else(|| file.first_tag())?;
     let text = tag.get_string(&ItemKey::Lyrics)?;
     parse(text, "embedded")

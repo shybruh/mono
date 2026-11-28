@@ -8,7 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn, fmtTime } from "@/lib/utils";
 
 /** Index of the last synced line at or before `t`. */
-function activeLine(lyrics: Lyrics, t: number): number {
+export function activeLine(lyrics: Lyrics, t: number): number {
   let lo = 0;
   let hi = lyrics.lines.length - 1;
   let ans = -1;
@@ -22,7 +22,7 @@ function activeLine(lyrics: Lyrics, t: number): number {
   return ans;
 }
 
-function LyricsPane({ lyrics, offset }: { lyrics: Lyrics; offset: number }) {
+export function LyricsPane({ lyrics, offset }: { lyrics: Lyrics; offset: number }) {
   const pos = useStore((s) => Math.round(s.pos * 10) / 10);
   const scroller = useRef<HTMLDivElement>(null);
   const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -31,21 +31,24 @@ function LyricsPane({ lyrics, offset }: { lyrics: Lyrics; offset: number }) {
   // Positive offset = lyrics later.
   const idx = lyrics.synced ? activeLine(lyrics, pos + 0.25 - offset) : -1;
 
+  // Runs before the follow effect below, so opening mid-song lands on the
+  // current line instead of the top.
+  useEffect(() => {
+    scroller.current?.scrollTo({ top: 0 });
+    lineRefs.current.length = lyrics.lines.length;
+  }, [lyrics]);
+
   useEffect(() => {
     if (!lyrics.synced || idx < 0) return;
     if (performance.now() - userScrollAt.current < 3500) return;
     lineRefs.current[idx]?.scrollIntoView({ block: "center", behavior: "smooth" });
-  }, [idx, lyrics.synced]);
-
-  useEffect(() => {
-    scroller.current?.scrollTo({ top: 0 });
-    lineRefs.current = [];
-  }, [lyrics]);
+  }, [idx, lyrics]);
 
   return (
     <div
       ref={scroller}
       onWheel={() => (userScrollAt.current = performance.now())}
+      onTouchMove={() => (userScrollAt.current = performance.now())}
       className="h-full overflow-y-auto pr-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       style={{
         maskImage: "linear-gradient(transparent, black 14%, black 86%, transparent)",

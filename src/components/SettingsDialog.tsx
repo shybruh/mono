@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AudioLines, FolderPlus, Info, Library, Moon, Palette, Play, Plug, SlidersVertical, X } from "lucide-react";
+import { AudioLines, ChevronLeft, ChevronRight, FolderPlus, Info, Library, Moon, Palette, Play, Plug, SlidersVertical, X } from "lucide-react";
 import { useStore } from "@/lib/store";
 import { api } from "@/lib/api";
 import { checkForUpdate, installUpdate, useUpdater } from "@/lib/updater";
@@ -7,6 +7,9 @@ import { cancelSleep, fmtRemaining, startSleep, useSleep } from "@/lib/sleep";
 import { fmtFreq, KIND_LABEL } from "@/lib/eq";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { useCompact } from "@/hooks/useCompact";
+import { isAndroidApp } from "@/lib/platform";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
@@ -271,6 +274,7 @@ function ServicesPage({ builtin }: { builtin: boolean }) {
           <Switch checked={config.lyricsOnline} onCheckedChange={(v) => setConfig({ lyricsOnline: v })} />
         </Row>
       </Group>
+      {!isAndroidApp && (
       <Group title="Discord">
         <Row label="Rich Presence">
           <Switch checked={config.discord} onCheckedChange={(v) => setConfig({ discord: v })} />
@@ -293,11 +297,26 @@ function ServicesPage({ builtin }: { builtin: boolean }) {
           </Row>
         )}
       </Group>
+      )}
     </>
   );
 }
 
 function AboutPage({ version }: { version: string }) {
+  // The Android app has no self-updater; new versions come as a new APK.
+  if (isAndroidApp) {
+    return (
+      <Group title="Version">
+        <Row label={version ? `Mono ${version}` : "Mono"}>
+          <span />
+        </Row>
+      </Group>
+    );
+  }
+  return <DesktopAbout version={version} />;
+}
+
+function DesktopAbout({ version }: { version: string }) {
   const config = useStore((s) => s.config)!;
   const setConfig = useStore((s) => s.setConfig);
   const upd = useUpdater();
@@ -345,6 +364,9 @@ export function SettingsDialog() {
   const [builtin, setBuiltin] = useState(false);
   const [version, setVersion] = useState("");
   const sleeping = useSleep((s) => !!s.mode);
+  const compact = useCompact();
+  /** Phones: a section is open (otherwise the list of sections shows). */
+  const [sub, setSub] = useState(false);
 
   useEffect(() => {
     api
@@ -358,6 +380,77 @@ export function SettingsDialog() {
 
   if (!hasConfig) return null;
   const current = PAGES.find((p) => p.id === page)!;
+  const body = (
+    <>
+      {page === "library" && <LibraryPage />}
+      {page === "playback" && <PlaybackPage />}
+      {page === "sound" && <SoundPage />}
+      {page === "sleep" && <SleepPage />}
+      {page === "appearance" && <AppearancePage />}
+      {page === "services" && <ServicesPage builtin={builtin} />}
+      {page === "about" && <AboutPage version={version} />}
+    </>
+  );
+
+  if (compact) {
+    return (
+      <Sheet
+        open={open}
+        onOpenChange={(v) => {
+          useStore.getState().setSettings(v);
+          if (!v) setSub(false);
+        }}
+      >
+        <SheetContent side="bottom" showCloseButton={false} className="h-dvh gap-0 border-0 p-0">
+          <SheetDescription className="sr-only">Mono preferences</SheetDescription>
+          <div className="flex h-14 shrink-0 items-center gap-1 border-b px-2">
+            {sub ? (
+              <button aria-label="Back" onClick={() => setSub(false)} className="rounded-md p-2 text-muted-foreground [&_svg]:size-5">
+                <ChevronLeft />
+              </button>
+            ) : (
+              <span className="w-2" />
+            )}
+            <SheetTitle key={sub ? page : "root"} className="flex-1 animate-fade text-base font-semibold">
+              {sub ? current.label : "Settings"}
+            </SheetTitle>
+            <button
+              aria-label="Close"
+              onClick={() => useStore.getState().setSettings(false)}
+              className="rounded-md p-2 text-muted-foreground [&_svg]:size-5"
+            >
+              <X />
+            </button>
+          </div>
+          {sub ? (
+            <div key={page} className="min-h-0 flex-1 animate-in space-y-6 overflow-y-auto px-3 py-4 fade-in slide-in-from-right-6 duration-300">
+              {body}
+            </div>
+          ) : (
+            <div className="min-h-0 flex-1 animate-in overflow-y-auto px-3 py-3 fade-in slide-in-from-left-6 duration-300">
+              <div className="divide-y rounded-xl border bg-card/40">
+                {PAGES.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => {
+                      setPage(p.id);
+                      setSub(true);
+                    }}
+                    className="flex h-14 w-full items-center gap-3.5 px-4 text-left text-[15px] active:bg-accent/60 [&>svg:first-child]:size-5 [&>svg:first-child]:text-muted-foreground"
+                  >
+                    <p.icon />
+                    <span className="flex-1">{p.label}</span>
+                    {p.id === "sleep" && sleeping && <span className="size-1.5 rounded-full bg-brand" />}
+                    <ChevronRight className="size-4 text-muted-foreground/60" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={(v) => useStore.getState().setSettings(v)}>
@@ -392,13 +485,7 @@ export function SettingsDialog() {
             <h2 key={page} className="animate-fade text-[15px] font-medium">{current.label}</h2>
           </div>
           <div key={page} className="min-h-0 flex-1 animate-rise space-y-6 overflow-y-auto px-6 py-5 [scrollbar-gutter:stable] max-sm:px-3 max-sm:py-4">
-            {page === "library" && <LibraryPage />}
-            {page === "playback" && <PlaybackPage />}
-            {page === "sound" && <SoundPage />}
-            {page === "sleep" && <SleepPage />}
-            {page === "appearance" && <AppearancePage />}
-            {page === "services" && <ServicesPage builtin={builtin} />}
-            {page === "about" && <AboutPage version={version} />}
+            {body}
           </div>
         </div>
       </DialogContent>

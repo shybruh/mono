@@ -1,0 +1,8 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Mono's dark background behind the status and navigation bars, with light icons. -->
+    <style name="Theme.mono" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="android:windowBackground">#09090b</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">false</item>
+    </style>
+</resources>

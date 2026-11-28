@@ -68,6 +68,7 @@ fn thumbnail(bytes: &[u8], size: u32) -> Option<Vec<u8>> {
 
 /// A track's cover as a JPEG file of at most `size` px, made once and cached.
 /// Used where something outside the app needs a file (the system media controls).
+#[cfg(desktop)]
 pub fn thumbnail_file(cache: &Path, path: &Path, size: u32) -> Option<PathBuf> {
     let file = cache.join(cache_key(path, size));
     if file.is_file() {

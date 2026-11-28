@@ -1,5 +1,5 @@
-# Builds signed installers for Windows, macOS and Linux when a version tag is
-# pushed, attaches them to a GitHub Release with an updater manifest
+# Builds signed installers for Windows, macOS, Linux and Android when a version
+# tag is pushed, attaches them to a GitHub Release with an updater manifest
 # (latest.json), and publishes the release once every platform succeeded.
 #
 #   git tag v0.2.0 && git push origin v0.2.0
@@ -10,6 +10,8 @@
 #                                       GitHub rejects empty secrets, and an
 #                                       unset secret resolves to "", which is
 #                                       what a passwordless key needs.
+#   ANDROID_KEYSTORE                    the Android release keystore, base64 (required)
+#   ANDROID_KEYSTORE_PASSWORD           its password (the key inside uses the same one)
 
 name: Release
 
@@ -143,8 +145,79 @@ jobs:
           fi
           echo "No removed macOS APIs imported by $bin"
 
+  # Android: an arm64 APK (practically every phone since 2017), signed with
+  # the release key so each version installs over the last.
+  android:
+    needs: create-release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "src-tauri -> target"
+          key: android
+
+      - name: Android NDK
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.2.12479018" > /dev/null
+          echo "NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018" >> "$GITHUB_ENV"
+
+      - name: Stamp version
+        run: node scripts/prepare-release.mjs "$GITHUB_REF_NAME"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm tauri android build --target aarch64 --apk
+
+      - name: Sign
+        env:
+          ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [[ -z "$ANDROID_KEYSTORE" ]]; then
+            echo "::error::The ANDROID_KEYSTORE secret is missing"
+            exit 1
+          fi
+          echo "$ANDROID_KEYSTORE" | base64 -d > "$RUNNER_TEMP/release.jks"
+          bt=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          apk="mono_${GITHUB_REF_NAME#v}_android_arm64.apk"
+          "$bt/zipalign" -f -p 4             src-tauri/gen/android/app/build/outputs/apk/universal/release/app-universal-release-unsigned.apk             "$RUNNER_TEMP/aligned.apk"
+          "$bt/apksigner" sign --ks "$RUNNER_TEMP/release.jks" --ks-pass env:ANDROID_KEYSTORE_PASSWORD             --ks-key-alias mono --out "$apk" "$RUNNER_TEMP/aligned.apk"
+          "$bt/apksigner" verify "$apk"
+          rm "$RUNNER_TEMP/release.jks"
+          echo "APK=$apk" >> "$GITHUB_ENV"
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ needs.create-release.outputs.release_id }}
+        run: |
+          # Replace an APK left by an earlier run of this release.
+          old=$(gh api "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets" --jq ".[] | select(.name == \"$APK\") | .id")
+          [[ -n "$old" ]] && gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/assets/$old"
+          curl -sSf -X POST             -H "Authorization: Bearer $GH_TOKEN"             -H "Content-Type: application/vnd.android.package-archive"             --data-binary @"$APK"             "https://uploads.github.com/repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID/assets?name=$APK" > /dev/null
+          echo "Attached $APK"
+
   publish:
-    needs: [create-release, build]
+    needs: [create-release, build, android]
     runs-on: ubuntu-latest
     steps:
       - name: Publish release

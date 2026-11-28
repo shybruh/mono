@@ -4,7 +4,19 @@ mod config;
 mod integrations;
 mod library;
 mod lyrics;
+#[cfg(desktop)]
 mod media;
+/// Phones: no system media controls yet (Android needs a media session
+/// in the activity), so the integrations thread gets nothing to update.
+#[cfg(mobile)]
+mod media {
+    #[derive(Clone)]
+    pub struct Media;
+    impl Media {
+        pub fn track(&self, _meta: &crate::meta::TrackMeta, _playing: bool) {}
+        pub fn playing(&self, _playing: bool, _pos: f64) {}
+    }
+}
 mod meta;
 mod smart;
 mod tags;
@@ -15,9 +27,10 @@ use std::sync::Arc;
 
 use crossbeam_channel::{unbounded, Sender};
 use notify_debouncer_mini::notify::RecommendedWatcher;
-use notify_debouncer_mini::Debouncer;
 use parking_lot::Mutex;
-use tauri::{AppHandle, Emitter, Manager, State, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use tauri::{AppHandle, Emitter, Manager, State, WebviewWindow};
+#[cfg(desktop)]
+use tauri::{WebviewUrl, WebviewWindowBuilder};
 
 use audio::player::Engine;
 use audio::waveform::WaveformCache;
@@ -33,7 +46,7 @@ pub struct AppState {
     config: ConfigStore,
     player: Player,
     hooks: Sender<Hook>,
-    watcher: Mutex<Option<Debouncer<RecommendedWatcher>>>,
+    watcher: Mutex<Option<RecommendedWatcher>>,
     data_dir: PathBuf,
 }
 
@@ -85,6 +98,14 @@ fn update_config(app: AppHandle, state: State<AppState>, patch: serde_json::Valu
 }
 
 // ------------------------------------------------------------------ library
+
+/// Re-watches and re-indexes the folders, e.g. once Android grants access to them.
+#[tauri::command]
+fn rescan(app: AppHandle, state: State<AppState>) {
+    let roots = state.config.get().roots;
+    *state.watcher.lock() = library::watch(&app, &roots);
+    library::spawn_indexer(app.clone(), roots);
+}
 
 #[tauri::command]
 async fn crates(state: State<'_, AppState>) -> Res<Vec<CrateNode>> {
@@ -356,6 +377,11 @@ fn set_repeat(app: AppHandle, state: State<AppState>, repeat: Repeat) -> Res<()>
 fn sync_state(state: State<AppState>) {
     state.player.send(Cmd::EmitState);
 }
+/// The page is hidden (phone app in the background, screen off) or back.
+#[tauri::command]
+fn set_ui_hidden(state: State<AppState>, hidden: bool) {
+    state.player.shared.ui_hidden.store(hidden, std::sync::atomic::Ordering::Relaxed);
+}
 #[tauri::command]
 fn set_meters(window: WebviewWindow, state: State<AppState>, on: bool, seq: u64) {
     state.player.set_meters(window.label(), on, seq);
@@ -363,6 +389,19 @@ fn set_meters(window: WebviewWindow, state: State<AppState>, on: bool, seq: u64)
 
 // ------------------------------------------------------------------ windows
 
+/// Phones have one window, so there's no mini player to open.
+#[cfg(mobile)]
+#[tauri::command]
+async fn open_deck() -> Res<()> {
+    Ok(())
+}
+#[cfg(mobile)]
+#[tauri::command]
+async fn close_deck() -> Res<()> {
+    Ok(())
+}
+
+#[cfg(desktop)]
 #[tauri::command]
 async fn open_deck(app: AppHandle) -> Res<()> {
     if let Some(w) = app.get_webview_window("deck") {
@@ -390,6 +429,7 @@ async fn open_deck(app: AppHandle) -> Res<()> {
     Ok(())
 }
 
+#[cfg(desktop)]
 #[tauri::command]
 async fn close_deck(app: AppHandle) -> Res<()> {
     if let Some(main) = app.get_webview_window("main") {
@@ -437,14 +477,14 @@ fn audio_args(args: impl Iterator<Item = String>) -> Vec<String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
-        .register_asynchronous_uri_scheme_protocol("cover", |ctx, request, responder| {
-            let cache = ctx.app_handle().path().app_cache_dir().map(|d| d.join("thumbs")).unwrap_or_default();
-            std::thread::spawn(move || responder.respond(thumbs::serve(&cache, &request)));
-        })
-        // Must be first: a second launch (e.g. "Open with Mono" while running)
-        // hands its files to this instance and exits.
-        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+    let builder = tauri::Builder::default().register_asynchronous_uri_scheme_protocol("cover", |ctx, request, responder| {
+        let cache = ctx.app_handle().path().app_cache_dir().map(|d| d.join("thumbs")).unwrap_or_default();
+        std::thread::spawn(move || responder.respond(thumbs::serve(&cache, &request)));
+    });
+    // Must be the first plugin: a second launch (e.g. "Open with Mono" while
+    // running) hands its files to this instance and exits.
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
             let files = audio_args(argv.into_iter().skip(1));
             if !files.is_empty() {
                 let _ = app.emit("open-files", files);
@@ -461,7 +501,8 @@ pub fn run() {
                 let _ = w.unminimize();
                 let _ = w.set_focus();
             }
-        }))
+        }));
+    builder
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
@@ -472,7 +513,19 @@ pub fn run() {
             let cfg_dir = app.path().app_config_dir()?;
             let data_dir = app.path().app_data_dir()?;
             let data_dir_for_engine = data_dir.clone();
+            #[cfg(target_os = "android")]
+            let first_run = !cfg_dir.join("config.json").exists();
             let config = ConfigStore::load(cfg_dir);
+            // Android first run: phones keep music in the shared Music folder,
+            // and their files rarely come with .lrc lyrics, so start in Music
+            // with online lyrics on.
+            #[cfg(target_os = "android")]
+            if first_run {
+                let _ = config.update(serde_json::json!({
+                    "roots": ["/storage/emulated/0/Music"],
+                    "lyricsOnline": true,
+                }));
+            }
             let cfg = config.get();
 
             let (tx, rx) = unbounded();
@@ -482,10 +535,13 @@ pub fn run() {
 
             // Media keys and the system's now-playing panel. Setup runs on the
             // main thread, which the controls need.
+            #[cfg(desktop)]
             let media = match (app.get_webview_window("main"), app.path().app_cache_dir()) {
                 (Some(main), Ok(cache)) => media::init(&handle, &main, tx.clone(), cache.join("thumbs")),
                 _ => None,
             };
+            #[cfg(mobile)]
+            let media: Option<media::Media> = None;
             integrations::spawn(
                 data_dir.clone(),
                 hook_rx,
@@ -554,6 +610,7 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             sort_dropped,
+            rescan,
             get_config,
             update_config,
             crates,
@@ -592,6 +649,7 @@ pub fn run() {
             set_repeat,
             sync_state,
             set_meters,
+            set_ui_hidden,
             open_deck,
             close_deck,
             quit,

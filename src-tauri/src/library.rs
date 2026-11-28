@@ -4,8 +4,8 @@
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use notify_debouncer_mini::notify::{RecommendedWatcher, RecursiveMode};
-use notify_debouncer_mini::{new_debouncer, DebounceEventResult, Debouncer};
+use notify_debouncer_mini::notify::event::{AccessKind, AccessMode};
+use notify_debouncer_mini::notify::{self, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
 use walkdir::WalkDir;
@@ -266,28 +266,51 @@ pub fn spawn_indexer(app: AppHandle, roots: Vec<String>) {
         .ok();
 }
 
-pub fn watch(app: &AppHandle, roots: &[String]) -> Option<Debouncer<RecommendedWatcher>> {
-    let handle = app.clone();
-    let mut debouncer = new_debouncer(Duration::from_millis(600), move |res: DebounceEventResult| {
-        let Ok(events) = res else { return };
-        let state = handle.state::<AppState>();
-        let mut dirs: Vec<String> = Vec::new();
-        for ev in events {
-            let p = ev.path.to_string_lossy().into_owned();
-            state.meta.invalidate(&p);
-            let d = ev.path.parent().map(|d| d.to_string_lossy().into_owned()).unwrap_or_default();
-            if !dirs.contains(&d) {
-                dirs.push(d);
-            }
-            if !dirs.contains(&p) {
-                dirs.push(p);
+pub fn watch(app: &AppHandle, roots: &[String]) -> Option<RecommendedWatcher> {
+    let (tx, rx) = crossbeam_channel::unbounded::<PathBuf>();
+    let mut watcher = notify::recommended_watcher(move |res: notify::Result<notify::Event>| {
+        let Ok(ev) = res else { return };
+        // Reads aren't changes. Linux and Android report every open and close,
+        // so counting them made each rescan (which reads the files) trigger
+        // the next one, forever. A file closed after writing still counts.
+        if let EventKind::Access(kind) = ev.kind {
+            if kind != AccessKind::Close(AccessMode::Write) {
+                return;
             }
         }
-        let _ = handle.emit("library-changed", dirs);
+        for p in ev.paths {
+            let _ = tx.send(p);
+        }
     })
     .ok()?;
     for r in roots {
-        let _ = debouncer.watcher().watch(Path::new(r), RecursiveMode::Recursive);
+        let _ = watcher.watch(Path::new(r), RecursiveMode::Recursive);
     }
-    Some(debouncer)
+
+    // Report once things have been quiet for 600 ms. The thread ends when the
+    // watcher is dropped (folders changed or app closed).
+    let handle = app.clone();
+    let _ = std::thread::Builder::new().name("mono-watch".into()).spawn(move || {
+        while let Ok(first) = rx.recv() {
+            let mut paths = vec![first];
+            while let Ok(p) = rx.recv_timeout(Duration::from_millis(600)) {
+                paths.push(p);
+            }
+            let state = handle.state::<AppState>();
+            let mut dirs: Vec<String> = Vec::new();
+            for path in paths {
+                let p = path.to_string_lossy().into_owned();
+                state.meta.invalidate(&p);
+                let d = path.parent().map(|d| d.to_string_lossy().into_owned()).unwrap_or_default();
+                if !dirs.contains(&d) {
+                    dirs.push(d);
+                }
+                if !dirs.contains(&p) {
+                    dirs.push(p);
+                }
+            }
+            let _ = handle.emit("library-changed", dirs);
+        }
+    });
+    Some(watcher)
 }
