@@ -5,6 +5,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-28
+
+Mono comes to Android, and a paused Mono now costs nothing.
+
+### Added
+- **Mono for Android.** The same player on your phone (Android 8 or newer, arm64), as an APK with every release. The player is the home screen: the cover, synced lyrics, meters and the waveform seek bar, with crates a swipe away and a mini player tinted with the cover underneath. Up next, the equaliser, settings and the tag editor open as sheets sized for a phone.
+  - **Plays in the background** with a notification, lock-screen controls, headset and Bluetooth buttons; pauses for calls and when headphones are unplugged.
+  - **Your folders**: starts with the Music folder; add any other from the phone's storage or SD card with the system folder picker.
+  - **Lyrics** under the cover or full screen with a tap, looked up online by default on phones.
+  - **Long-press a song** to queue it, edit its tags or analyse its BPM and key. Editing asks once for permission to manage files.
+
 ### Fixed
 - **Constant CPU use on Linux.** Reading a song counted as a change to its folder, so the library kept rescanning itself while Mono was open. Only real changes (files added, removed, renamed or saved) count now.
 - **Editing tags of downloads saved with the wrong extension** (for example MP4/AAC audio named `.mp3`) failed with "contains an invalid frame". Mono now goes by what's in the file, and shows its real format (M4A) and bitrate.
