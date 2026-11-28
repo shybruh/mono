@@ -29,8 +29,8 @@ Also needs the Android SDK (Android Studio installs it), the NDK and Java 17+. T
 
 ```powershell
 rustup target add aarch64-linux-android
-scriptsndroid.ps1            # build and sign an arm64 APK
-scriptsndroid.ps1 -Install   # also install it on the phone connected through adb
+scripts\android.ps1            # build and sign an arm64 APK
+scripts\android.ps1 -Install   # also install it on the phone connected through adb
 ```
 
 The script signs with `~/.android/mono-release.jks` (alias `mono`) when it exists, otherwise with the debug key. Android won't install one over the other, so uninstall first when switching. A phone can be connected without a cable through **Developer options → Wireless debugging** and `adb pair`.
@@ -55,7 +55,7 @@ Releases are built by GitHub Actions ([`.github/workflows/release.yml`](../.gith
    git push origin v0.2.0
    ```
 
-The workflow stamps the version from the tag into `tauri.conf.json`, `package.json` and `Cargo.toml`, builds Windows (NSIS + MSI), macOS (one universal app for Apple Silicon and Intel), Linux (AppImage, deb, rpm) and Android (an arm64 APK signed with the release key), signs the update bundles, uploads everything with a `latest.json` manifest to a draft release, and publishes it once all platforms succeed. Running copies of Mono pick it up within a few hours (or via **Settings → Updates → Check now**). Tags with a suffix such as `v1.0.0-beta.1` are published as pre-releases, which the updater ignores.
+The workflow stamps the version from the tag into `tauri.conf.json`, `package.json` and `Cargo.toml`, builds Windows (NSIS + MSI), macOS (one universal app for Apple Silicon and Intel), Linux (AppImage, deb, rpm) and Android (an arm64 APK signed with the release key), signs the update bundles, uploads everything with a `latest.json` manifest to a draft release, and publishes it once all platforms succeed. Running copies of Mono on the desktop pick it up within a few hours (or via **Settings → Updates → Check now**). Tags with a suffix such as `v1.0.0-beta.1` are published as pre-releases, which the updater ignores.
 
 ### One-time setup
 
